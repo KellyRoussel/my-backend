@@ -3,6 +3,8 @@ from typing import Optional
 
 import jwt
 from fastapi import APIRouter
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from config import settings
 from dependencies.google_auth_service import google_auth_service
@@ -24,7 +26,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 @authentication_router.get("/auth/callback")
-async def auth_callback(code: str):
+async def auth_callback(request: Request):
+    code = request.query_params.get("code")
+    if not code:
+        return {"error": "No code provided"}
+
+    # Redirect back to the app with the code in the custom scheme
+    return RedirectResponse(f"bobobidou://auth?code={code}")
+
+
+@authentication_router.get("/auth/exchange")
+async def exchange_code(code: str):
     # Échanger le code contre un token
     token_data = await google_auth_service.exchange_code_for_token(code)
     google_access_token = token_data["access_token"]
