@@ -11,7 +11,7 @@ class GoogleAuthService:
     async def get_auth_url():
         params = {
             "client_id": settings.google_client_id,
-            "redirect_uri": settings.google_redirect_uri,
+            "redirect_uri": settings.auth_redirect_uri,
             "response_type": "code",
             "scope": "email profile",
             "access_type": "offline",
@@ -29,7 +29,7 @@ class GoogleAuthService:
             "code": code,
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
-            "redirect_uri": settings.google_redirect_uri,
+            "redirect_uri": settings.auth_redirect_uri,
             "grant_type": "authorization_code",
         }
 

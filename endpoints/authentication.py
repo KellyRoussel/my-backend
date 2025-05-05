@@ -8,11 +8,17 @@ from starlette.responses import RedirectResponse
 
 from config import settings
 from dependencies.google_auth_service import google_auth_service
+from dependencies.insta_auth_service import insta_auth_service
 
 authentication_router = APIRouter(tags=["Authentication"])
 @authentication_router.get("/login/google")
 async def get_google_auth_url():
     auth_url = await google_auth_service.get_auth_url()
+    return {"authorization_url": auth_url}
+
+@authentication_router.get("/login/insta")
+async def get_insta_auth_url():
+    auth_url = await insta_auth_service.get_auth_url()
     return {"authorization_url": auth_url}
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -36,13 +42,14 @@ async def auth_callback(request: Request):
 
 
 @authentication_router.get("/auth/exchange")
-async def exchange_code(code: str):
+async def exchange_code(code: str, service_str: str = 'google'):
+    service = google_auth_service if service_str == "google" else insta_auth_service
     # Échanger le code contre un token
-    token_data = await google_auth_service.exchange_code_for_token(code)
+    token_data = await service.exchange_code_for_token(code)
     google_access_token = token_data["access_token"]
 
     # Obtenir les informations utilisateur
-    user = await google_auth_service.get_user_info(google_access_token)
+    user = await service.get_user_info(google_access_token)
 
     # Créer un JWT contenant les informations utilisateur
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
