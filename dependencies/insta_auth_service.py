@@ -15,7 +15,7 @@ class InstaAuthService:
             "client_id": settings.insta_client_id,
             "redirect_uri": settings.auth_redirect_uri + f"/{app}",
             "response_type": "code",
-            "scope": "instagram_business_basic instagram_business_content_publish public_profile email",
+            "scope": "instagram_business_basic instagram_business_content_publish user_profile user_media",
             "enable_fb_login": 0,
             "force_authentication": 1
         }
