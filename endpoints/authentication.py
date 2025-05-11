@@ -46,6 +46,9 @@ async def exchange_code(code: str, service_str: str = 'google'):
     service = google_auth_service if service_str == "google" else insta_auth_service
     # Échanger le code contre un token
     token_data = await service.exchange_code_for_token(code)
+    print(f"TOKEN DATA: {token_data}")
+
+
     google_access_token = token_data["access_token"]
 
     # Obtenir les informations utilisateur
