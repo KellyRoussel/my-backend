@@ -53,8 +53,8 @@ class InstaAuthService:
     @staticmethod
     async def get_user_info(access_token: str):
         async with httpx.AsyncClient() as client:
-            url = f"{settings.insta_user_info_url}?fields=id,username&access_token={access_token}"
-            print(f"USER INFO URL: {url}")
+            url = f"{settings.insta_user_info_url}?fields=id,username,profile_picture_url&access_token={access_token}"
+
 
             user_info_response = await client.get(url)
             user_info = user_info_response.json()
@@ -66,13 +66,12 @@ class InstaAuthService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error getting user info: {user_info['error']}"
                 )
-            user_info = user_info["data"][0]
 
             return User(
                 email=user_info.get("email"),
-                name=user_info.get("name"),
+                name=user_info.get("username"),
                 picture=user_info.get("profile_picture_url"),
-                id=user_info["user_id"]
+                id=user_info["id"]
             )
 
     @staticmethod
