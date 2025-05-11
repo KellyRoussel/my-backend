@@ -31,14 +31,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
-@authentication_router.get("/auth/callback")
-async def auth_callback(request: Request):
+@authentication_router.get("/auth/callback/{app}")
+async def auth_callback(request: Request, app: str):
     code = request.query_params.get("code")
     if not code:
         return {"error": "No code provided"}
 
     # Redirect back to the app with the code in the custom scheme
-    return RedirectResponse(f"bobobidou://auth?code={code}")
+    return RedirectResponse(f"{app}://auth?code={code}")
 
 
 @authentication_router.get("/auth/exchange")
