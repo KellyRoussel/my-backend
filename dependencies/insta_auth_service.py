@@ -10,10 +10,10 @@ class InstaAuthService:
     #https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
 
     @staticmethod
-    async def get_auth_url():
+    async def get_auth_url(app:str):
         params = {
             "client_id": settings.insta_client_id,
-            "redirect_uri": settings.auth_redirect_uri,
+            "redirect_uri": settings.auth_redirect_uri + f"/{app}",
             "response_type": "code",
             "scope": "instagram_business_basic instagram_business_content_publish",
             "enable_fb_login": 0,

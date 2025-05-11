@@ -11,14 +11,14 @@ from dependencies.google_auth_service import google_auth_service
 from dependencies.insta_auth_service import insta_auth_service
 
 authentication_router = APIRouter(tags=["Authentication"])
-@authentication_router.get("/login/google")
-async def get_google_auth_url():
-    auth_url = await google_auth_service.get_auth_url()
+@authentication_router.get("/login/google/{app}")
+async def get_google_auth_url(app: str):
+    auth_url = await google_auth_service.get_auth_url(app)
     return {"authorization_url": auth_url}
 
-@authentication_router.get("/login/insta")
-async def get_insta_auth_url():
-    auth_url = await insta_auth_service.get_auth_url()
+@authentication_router.get("/login/insta/{app}")
+async def get_insta_auth_url(app: str):
+    auth_url = await insta_auth_service.get_auth_url(app)
     return {"authorization_url": auth_url}
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

@@ -8,10 +8,10 @@ from models.authentication import User
 
 class GoogleAuthService:
     @staticmethod
-    async def get_auth_url():
+    async def get_auth_url(app: str):
         params = {
             "client_id": settings.google_client_id,
-            "redirect_uri": settings.auth_redirect_uri,
+            "redirect_uri": settings.auth_redirect_uri + f"/{app}",
             "response_type": "code",
             "scope": "email profile",
             "access_type": "offline",
