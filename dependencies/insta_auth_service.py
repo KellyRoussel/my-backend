@@ -67,6 +67,15 @@ class InstaAuthService:
                     detail=f"Error getting user info: {user_info['error']}"
                 )
 
+            try:
+                url = f"https://graph.instagram.com/v22.0/{user_info['id']}?fields=name,profile_picture_url&access_token={access_token}"
+
+                more_user_info_response = await client.get(url)
+                more_user_info = more_user_info_response.json()
+                print(f"MORE USER INFO: {more_user_info}")
+            except Exception as e:
+                print(f"🔴 Error getting more user info: {e}")
+
             return User(
                 email=user_info.get("email"),
                 name=user_info.get("username"),
