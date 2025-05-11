@@ -68,7 +68,7 @@ class InstaAuthService:
                 )
 
             try:
-                url = f"www.instagram.com/{user_info.get('username')}/channel/?__a=1"
+                url = f"https://www.instagram.com/{user_info.get('username')}/channel/?__a=1"
 
                 more_user_info_response = await client.get(url)
                 more_user_info = more_user_info_response.json()
