@@ -53,7 +53,7 @@ class InstaAuthService:
     @staticmethod
     async def get_user_info(access_token: str):
         async with httpx.AsyncClient() as client:
-            url = f"{settings.insta_user_info_url}?fields=user_id,name,profile_picture_url&access_token={access_token}"
+            url = f"{settings.insta_user_info_url}?fields=id,username&access_token={access_token}"
             print(f"USER INFO URL: {url}")
 
             user_info_response = await client.get(url)
