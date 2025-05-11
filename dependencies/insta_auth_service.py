@@ -42,8 +42,6 @@ class InstaAuthService:
             token_response = await client.post(settings.insta_token_url, data=token_request_data)
             token_response_data = token_response.json()
 
-            print(f"TOKEN RESPONSE DATA (exchange): {token_response_data}")
-
             if "error" in token_response_data:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,8 +54,12 @@ class InstaAuthService:
     async def get_user_info(access_token: str):
         async with httpx.AsyncClient() as client:
             url = f"{settings.insta_user_info_url}?fields=user_id,name,profile_picture_url&access_token={access_token}"
+            print(f"USER INFO URL: {url}")
+
             user_info_response = await client.get(url)
             user_info = user_info_response.json()
+
+            print(f"USER INFO: {user_info}")
 
             if "error" in user_info:
                 raise HTTPException(

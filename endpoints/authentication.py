@@ -46,13 +46,11 @@ async def exchange_code(app: str, code: str, service_str: str = 'google'):
     service = google_auth_service if service_str == "google" else insta_auth_service
     # Échanger le code contre un token
     token_data = await service.exchange_code_for_token(code, app)
-    print(f"TOKEN DATA: {token_data}")
 
-
-    google_access_token = token_data["access_token"]
+    raw_access_token = token_data["access_token"]
 
     # Obtenir les informations utilisateur
-    user = await service.get_user_info(google_access_token)
+    user = await service.get_user_info(raw_access_token)
 
     # Créer un JWT contenant les informations utilisateur
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
