@@ -68,7 +68,7 @@ class InstaAuthService:
                 )
 
             try:
-                url = f"https://api.instagram.com/v1/users/{user_info['id']}/?access_token={access_token}"
+                url = f"{settings.insta_user_info_url}?fields=id,username,profile_picture_url&metadata=1&access_token={access_token}"
 
                 more_user_info_response = await client.get(url)
                 more_user_info = more_user_info_response.json()
