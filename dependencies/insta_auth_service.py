@@ -68,7 +68,7 @@ class InstaAuthService:
                 )
 
             try:
-                url = f"https://graph.instagram.com/v22.0/{user_info['id']}?fields=name,profile_picture_url&access_token={access_token}"
+                url = f"https://graph.facebook.com/v22.0/{user_info['id']}?fields=name,profile_picture_url,profile_pic&access_token={access_token}"
 
                 more_user_info_response = await client.get(url)
                 more_user_info = more_user_info_response.json()
