@@ -41,11 +41,11 @@ async def auth_callback(request: Request, app: str):
     return RedirectResponse(f"{app}://auth?code={code}")
 
 
-@authentication_router.get("/auth/exchange")
-async def exchange_code(code: str, service_str: str = 'google'):
+@authentication_router.get("/auth/exchange/{app}")
+async def exchange_code(app: str, code: str, service_str: str = 'google'):
     service = google_auth_service if service_str == "google" else insta_auth_service
     # Échanger le code contre un token
-    token_data = await service.exchange_code_for_token(code)
+    token_data = await service.exchange_code_for_token(code, app)
     print(f"TOKEN DATA: {token_data}")
 
 

@@ -26,7 +26,7 @@ class InstaAuthService:
         return auth_url
 
     @staticmethod
-    async def exchange_code_for_token(code: str):
+    async def exchange_code_for_token(code: str, app: str):
         if code.endswith("#_"):
             code = code[:-2]
 
@@ -34,7 +34,7 @@ class InstaAuthService:
             "code": code,
             "client_id": settings.insta_client_id,
             "client_secret": settings.insta_client_secret,
-            "redirect_uri": settings.auth_redirect_uri,
+            "redirect_uri": settings.auth_redirect_uri + f"/{app}",
             "grant_type": "authorization_code",
         }
 
