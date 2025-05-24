@@ -4,6 +4,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env")
 
     openai_bobobidou_key: str = ""
+    openai_instaposter_key: str = ""
     google_client_id: str = ""
     google_client_secret: str = ""
     insta_client_id: str = ""

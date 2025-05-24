@@ -7,6 +7,7 @@ from dependencies.auth_handler import auth_handler
 from dependencies.google_auth_service import GoogleAuthService
 from endpoints.authentication import authentication_router
 from endpoints.bobobidou import bobobidou_router
+from endpoints.insta_poster import insta_poster_router
 
 class MyBackendState(State):
     google_auth_service: GoogleAuthService
@@ -26,6 +27,7 @@ app = MyBackendAPI(
 
 app.include_router(bobobidou_router, dependencies=[Depends(auth_handler)])
 app.include_router(authentication_router)
+app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 
 @app.get("/health")
 def health():
