@@ -19,6 +19,7 @@ class AuthHandler:
 
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            print(payload)
             email: str = payload.get("email")
             sub: str = payload.get("sub")
             name: str = payload.get("name")
