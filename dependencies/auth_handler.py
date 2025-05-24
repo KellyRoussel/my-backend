@@ -25,7 +25,7 @@ class AuthHandler:
             name: str = payload.get("name")
             picture: str = payload.get("picture")
 
-            if email is None or sub is None:
+            if sub is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials",
