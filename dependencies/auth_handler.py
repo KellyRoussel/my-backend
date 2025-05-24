@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import jwt
 from fastapi import HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -19,16 +21,26 @@ class AuthHandler:
 
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-            print(payload)
             email: str = payload.get("email")
             sub: str = payload.get("sub")
             name: str = payload.get("name")
             picture: str = payload.get("picture")
+            exp: int = payload.get("exp")
 
             if sub is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # check expiration
+            expiration_time = datetime.fromtimestamp(exp, tz=timezone.utc)
+            now = datetime.now(timezone.utc)
+            if expiration_time < now:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token expired",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
@@ -43,7 +55,7 @@ class AuthHandler:
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token or expired token",
+                detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
