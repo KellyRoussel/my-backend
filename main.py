@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends
 from starlette.datastructures import State
 
 from dependencies.auth_handler import auth_handler
-from dependencies.google_auth_service import GoogleAuthService
+from dependencies.auth_services.google_auth_service import GoogleAuthService
 from endpoints.authentication import authentication_router
 from endpoints.bobobidou import bobobidou_router
 from endpoints.insta_poster import insta_poster_router

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     algorithm: str = ""
     access_token_expire_minutes: int = 60
     insta_long_lived_token_url:str = ""
+    database_url: str = ""
 
 
 settings = Settings()
