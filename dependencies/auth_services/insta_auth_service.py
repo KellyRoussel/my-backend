@@ -24,7 +24,7 @@ class InstaAuthService(BaseAuthService):
             auth_state = AuthState(
                 state=state,
                 app_name=app,
-                provider=AuthProvider.INSTAGRAM,
+                provider=AuthProvider.INSTAGRAM.value,
                 expires_at=expires_at
             )
             db.add(auth_state)
