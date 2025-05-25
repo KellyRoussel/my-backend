@@ -51,7 +51,7 @@ class GoogleAuthService(BaseAuthService):
             auth_state = db.query(AuthState).filter(
                 AuthState.state == state,
                 AuthState.app_name == app,
-                AuthState.provider == AuthProvider.GOOGLE,
+                AuthState.provider == AuthProvider.GOOGLE.value,
                 AuthState.expires_at > datetime.utcnow()
             ).first()
 
@@ -135,7 +135,7 @@ class GoogleAuthService(BaseAuthService):
                     username=user_info.email.split('@')[0],  # Use email prefix as username
                     display_name=user_info.name,
                     profile_picture_url=user_info.picture,
-                    primary_provider=AuthProvider.GOOGLE
+                    primary_provider=AuthProvider.GOOGLE.value
                 )
                 db.add(user_record)
 

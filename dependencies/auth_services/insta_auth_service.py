@@ -51,7 +51,7 @@ class InstaAuthService(BaseAuthService):
             auth_state = db.query(AuthState).filter(
                 AuthState.state == state,
                 AuthState.app_name == app,
-                AuthState.provider == AuthProvider.INSTAGRAM,
+                AuthState.provider == AuthProvider.INSTAGRAM.value,
                 AuthState.expires_at > datetime.utcnow()
             ).first()
 
@@ -137,7 +137,7 @@ class InstaAuthService(BaseAuthService):
                 username=user_info.name,
                 display_name=user_info.name,
                 profile_picture_url=user_info.picture,
-                primary_provider=AuthProvider.INSTAGRAM
+                primary_provider=AuthProvider.INSTAGRAM.value
             )
             db.add(user_record)
 
