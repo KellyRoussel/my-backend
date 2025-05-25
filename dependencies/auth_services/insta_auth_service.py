@@ -48,10 +48,12 @@ class InstaAuthService(BaseAuthService):
     async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None) -> Dict:
         # Validate state parameter if provided
         if state and db:
+            print(f"==> AuthProvider.INSTAGRAM value: {AuthProvider.INSTAGRAM.value}")
+            print(f"==> AuthProvider.INSTAGRAM: {AuthProvider.INSTAGRAM}")
             auth_state = db.query(AuthState).filter(
                 AuthState.state == state,
                 AuthState.app_name == app,
-                AuthState.provider == AuthProvider.INSTAGRAM,
+                AuthState.provider == AuthProvider.INSTAGRAM.value,
                 AuthState.expires_at > datetime.utcnow()
             ).first()
 
