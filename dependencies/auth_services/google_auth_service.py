@@ -51,7 +51,7 @@ class GoogleAuthService(BaseAuthService):
             auth_state = db.query(AuthState).filter(
                 AuthState.state == state,
                 AuthState.app_name == app,
-                AuthState.provider == AuthProvider.GOOGLE.value,
+                AuthState.provider == AuthProvider.GOOGLE,
                 AuthState.expires_at > datetime.utcnow()
             ).first()
 
