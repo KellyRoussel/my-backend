@@ -12,7 +12,7 @@ from config import settings
 from database import get_db
 from dependencies.auth_services.google_auth_service import google_auth_service
 from dependencies.auth_services.insta_auth_service import insta_auth_service
-from models.database_models import User
+from models.database_models import User, AuthProvider
 
 authentication_router = APIRouter(tags=["Authentication"])
 
@@ -73,14 +73,14 @@ async def exchange_code(
         db: Session = Depends(get_db)
 ):
     # Select the appropriate service
-    if service == "google":
+    if service == AuthProvider.GOOGLE.value:
         auth_service = google_auth_service
-    elif service == "instagram":
+    elif service == AuthProvider.INSTAGRAM.value:
         auth_service = insta_auth_service
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid service. Must be 'google' or 'instagram'"
+            detail="Invalid service. Must be 'GOOGLE' or 'INSTAGRAM'"
         )
 
     try:

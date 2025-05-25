@@ -8,8 +8,8 @@ Base = declarative_base()
 
 
 class AuthProvider(enum.Enum):
-    GOOGLE = "google"
-    INSTAGRAM = "instagram"
+    GOOGLE = "GOOGLE"
+    INSTAGRAM = "INSTAGRAM"
 
 
 class User(Base):
