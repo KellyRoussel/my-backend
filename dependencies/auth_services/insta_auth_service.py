@@ -130,6 +130,7 @@ class InstaAuthService(BaseAuthService):
             existing_user.updated_at = datetime.utcnow()
             user_record = existing_user
         else:
+            print("❤️ Creating new user")
             # Create new user
             user_record = User(
                 id=user_info.id,
@@ -137,7 +138,7 @@ class InstaAuthService(BaseAuthService):
                 username=user_info.name,
                 display_name=user_info.name,
                 profile_picture_url=user_info.picture,
-                primary_provider=AuthProvider.INSTAGRAM.value
+                primary_provider=AuthProvider.INSTAGRAM
             )
             db.add(user_record)
 

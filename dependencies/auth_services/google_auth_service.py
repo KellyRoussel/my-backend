@@ -135,7 +135,7 @@ class GoogleAuthService(BaseAuthService):
                     username=user_info.email.split('@')[0],  # Use email prefix as username
                     display_name=user_info.name,
                     profile_picture_url=user_info.picture,
-                    primary_provider=AuthProvider.GOOGLE.value
+                    primary_provider=AuthProvider.GOOGLE
                 )
                 db.add(user_record)
 
