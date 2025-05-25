@@ -6,11 +6,6 @@ from config import settings
 
 # Get database URL from environment
 DATABASE_URL = settings.database_url
-print(f"❤️❤️❤️{DATABASE_URL}")
-
-# For Render PostgreSQL, you might need to replace postgres:// with postgresql://
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # Create engine
 engine = create_engine(
