@@ -32,6 +32,7 @@ async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, 
 
     # Check if user exists (by Google ID)
     user_record = db.query(User).filter(User.id == user_id).first()
+    print(f"🌟 save_my_backend_refresh_token: User collected")
 
     if not user_record:
         raise HTTPException(
@@ -55,11 +56,9 @@ async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, 
     my_backend_token = MyBackendToken(
         user_id=user_record.id,
         access_token=refresh_token_data["access_token"],
-        refresh_token=refresh_token_data.get("refresh_token"),  # Google provides refresh tokens
         token_type=refresh_token_data.get("token_type", "refresh"),
         expires_in=refresh_token_data.get("expires_in"),
-        expires_at=expires_at,
-        scope=refresh_token_data.get("scope", "email profile")
+        expires_at=expires_at
     )
     db.add(my_backend_token)
 
@@ -149,7 +148,7 @@ async def exchange_code(
 
         # Save refresh token to database
         print(f"🙂 Saving refresh token to DB")
-        await save_my_backend_refresh_token(user_record, refresh_token, db)
+        await save_my_backend_refresh_token(user_record, {"access_token": refresh_token, "token_type": "refresh", "expires_in": settings.refresh_token_expire_days * 86400}, db)
 
         return {
             "access_token": access_token,

@@ -72,7 +72,6 @@ class MyBackendToken(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     access_token = Column(Text, nullable=False)
-    refresh_token = Column(Text, nullable=True)  # Google provides refresh tokens
     token_type = Column(String, default="bearer")
     expires_in = Column(Integer, nullable=True)
     expires_at = Column(DateTime, nullable=True)
