@@ -148,7 +148,7 @@ async def exchange_code(
 
         # Save refresh token to database
         print(f"🙂 Saving refresh token to DB")
-        await save_my_backend_refresh_token(user_record, {"access_token": refresh_token, "token_type": "refresh", "expires_in": settings.refresh_token_expire_days * 86400}, db)
+        await save_my_backend_refresh_token(user_record.id, {"access_token": refresh_token, "token_type": "refresh", "expires_in": settings.refresh_token_expire_days * 86400}, db)
 
         return {
             "access_token": access_token,
