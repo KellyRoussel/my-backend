@@ -1,4 +1,5 @@
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict
 import httpx
@@ -129,8 +130,9 @@ class GoogleAuthService(BaseAuthService):
                 user_record.updated_at = datetime.utcnow()
             else:
                 # Create new user
+                # create user_id as random uuid
                 user_record = User(
-                    id=user_info.id,
+                    id=str(uuid.uuid4()),
                     email=user_info.email,
                     username=user_info.email.split('@')[0],  # Use email prefix as username
                     display_name=user_info.name,

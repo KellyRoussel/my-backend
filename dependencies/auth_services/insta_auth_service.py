@@ -1,4 +1,5 @@
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict
 import httpx
@@ -137,7 +138,7 @@ class InstaAuthService(BaseAuthService):
             print("❤️ Creating new user")
             # Create new user
             user_record = User(
-                id=user_info.id,
+                id=str(uuid.uuid4()),
                 email=user_info.email,
                 username=user_info.name,
                 display_name=user_info.name,
