@@ -140,6 +140,8 @@ class GoogleAuthService(BaseAuthService):
                     primary_provider=AuthProvider.GOOGLE
                 )
                 db.add(user_record)
+                db.flush()
+                db.refresh(user_record)
 
         # Calculate expiration time
         expires_at = None

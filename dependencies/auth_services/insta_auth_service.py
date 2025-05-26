@@ -146,6 +146,9 @@ class InstaAuthService(BaseAuthService):
                 primary_provider=AuthProvider.INSTAGRAM
             )
             db.add(user_record)
+            db.flush()
+            db.refresh(user_record)
+            print(f"🌟 New user id: {user_record.id}")
 
         # Calculate expiration time
         expires_at = None
@@ -154,13 +157,13 @@ class InstaAuthService(BaseAuthService):
 
         # Deactivate old tokens
         db.query(InstagramToken).filter(
-            InstagramToken.user_id == user_info.id,
+            InstagramToken.user_id == user_record.id,
             InstagramToken.is_active == "true"
         ).update({"is_active": "false"})
 
         # Save new Instagram token
         instagram_token = InstagramToken(
-            user_id=user_info.id,
+            user_id=user_record.id,
             access_token=refresh_token_data["access_token"],
             token_type=refresh_token_data.get("token_type", "refresh"),
             expires_in=refresh_token_data.get("expires_in"),
