@@ -27,6 +27,7 @@ class User(Base):
     # Relationships to tokens
     instagram_tokens = relationship("InstagramToken", back_populates="user")
     google_tokens = relationship("GoogleToken", back_populates="user")
+    my_backend_tokens = relationship("MyBackendToken", back_populates="user")
 
 
 class InstagramToken(Base):
@@ -64,6 +65,25 @@ class GoogleToken(Base):
 
     # Relationship to user
     user = relationship("User", back_populates="google_tokens")
+
+class MyBackendToken(Base):
+    __tablename__ = "my_backend_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=True)  # Google provides refresh tokens
+    token_type = Column(String, default="bearer")
+    expires_in = Column(Integer, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    scope = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(String, default="true")
+
+    # Relationship to user
+    user = relationship("User", back_populates="my_backend_tokens")
+
 
 
 class AuthState(Base):

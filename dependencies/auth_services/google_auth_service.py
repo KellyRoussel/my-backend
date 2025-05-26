@@ -104,7 +104,7 @@ class GoogleAuthService(BaseAuthService):
                 id=user_info["sub"]
             )
 
-    async def save_user_and_token(self, user_info: UserResponse, token_data: Dict, db: Session) -> User:
+    async def save_user_and_token(self, user_info: UserResponse, refresh_token_data: Dict, db: Session) -> User:
         """Save or update user and their Google token"""
 
         # Check if user exists (by Google ID)
@@ -141,8 +141,8 @@ class GoogleAuthService(BaseAuthService):
 
         # Calculate expiration time
         expires_at = None
-        if "expires_in" in token_data:
-            expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
+        if "expires_in" in refresh_token_data:
+            expires_at = datetime.utcnow() + timedelta(seconds=refresh_token_data["expires_in"])
 
         # Deactivate old Google tokens
         db.query(GoogleToken).filter(
@@ -153,12 +153,12 @@ class GoogleAuthService(BaseAuthService):
         # Save new Google token
         google_token = GoogleToken(
             user_id=user_record.id,
-            access_token=token_data["access_token"],
-            refresh_token=token_data.get("refresh_token"),  # Google provides refresh tokens
-            token_type=token_data.get("token_type", "bearer"),
-            expires_in=token_data.get("expires_in"),
+            access_token=refresh_token_data["access_token"],
+            refresh_token=refresh_token_data.get("refresh_token"),  # Google provides refresh tokens
+            token_type=refresh_token_data.get("token_type", "refresh"),
+            expires_in=refresh_token_data.get("expires_in"),
             expires_at=expires_at,
-            scope=token_data.get("scope", "email profile")
+            scope=refresh_token_data.get("scope", "email profile")
         )
         db.add(google_token)
 

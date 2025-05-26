@@ -21,10 +21,9 @@ class AuthHandler:
 
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            print("🤍 Authenticating => payload", payload)
             email: str = payload.get("email")
             sub: str = payload.get("sub")
-            name: str = payload.get("name")
-            picture: str = payload.get("picture")
             exp: int = payload.get("exp")
 
             if sub is None:
@@ -44,13 +43,8 @@ class AuthHandler:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            user = User(
-                email=email,
-                id=sub,
-                name=name,
-                picture=picture
-            )
-            return user
+
+            return True
 
         except Exception:
             raise HTTPException(

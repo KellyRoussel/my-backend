@@ -88,9 +88,11 @@ class InstaAuthService(BaseAuthService):
                     detail=f"Instagram authentication error: {token_response_data['error']}"
                 )
 
+        access_token = token_response_data["access_token"]
+
         # Get long-lived token
         try:
-            long_lived_token = await self._get_long_lived_token(token_response_data["access_token"])
+            long_lived_token = await self._get_long_lived_token(access_token)
         except Exception as e:
             print(f"🔴 Error getting long-lived token: {e}")
             raise HTTPException(
@@ -98,7 +100,7 @@ class InstaAuthService(BaseAuthService):
                 detail="Failed to get long-lived token"
             )
 
-        return long_lived_token
+        return {"access_token": access_token, "refresh_token": long_lived_token}
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
@@ -119,7 +121,7 @@ class InstaAuthService(BaseAuthService):
                 id=user_info["id"]
             )
 
-    async def save_user_and_token(self, user_info: UserResponse, token_data: Dict, db: Session) -> User:
+    async def save_user_and_token(self, user_info: UserResponse, refresh_token_data: Dict, db: Session) -> User:
         """Save or update user and their Instagram token"""
 
         # Check if user exists
@@ -146,8 +148,8 @@ class InstaAuthService(BaseAuthService):
 
         # Calculate expiration time
         expires_at = None
-        if "expires_in" in token_data:
-            expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
+        if "expires_in" in refresh_token_data:
+            expires_at = datetime.utcnow() + timedelta(seconds=refresh_token_data["expires_in"])
 
         # Deactivate old tokens
         db.query(InstagramToken).filter(
@@ -158,9 +160,9 @@ class InstaAuthService(BaseAuthService):
         # Save new Instagram token
         instagram_token = InstagramToken(
             user_id=user_info.id,
-            access_token=token_data["access_token"],
-            token_type=token_data.get("token_type", "bearer"),
-            expires_in=token_data.get("expires_in"),
+            access_token=refresh_token_data["access_token"],
+            token_type=refresh_token_data.get("token_type", "refresh"),
+            expires_in=refresh_token_data.get("expires_in"),
             expires_at=expires_at,
             scope="instagram_business_basic instagram_business_content_publish"
         )

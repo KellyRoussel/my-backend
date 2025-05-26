@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from typing import Optional
+from typing import Optional, Dict
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,20 +12,60 @@ from config import settings
 from database import get_db
 from dependencies.auth_services.google_auth_service import google_auth_service
 from dependencies.auth_services.insta_auth_service import insta_auth_service
-from models.database_models import User, AuthProvider
+from models.database_models import User, AuthProvider, MyBackendToken
 
 authentication_router = APIRouter(tags=["Authentication"])
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, type="access", expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now() + expires_delta
     else:
         expire = datetime.now() + timedelta(minutes=settings.access_token_expire_minutes)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": type})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
+
+async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, db: Session) -> User:
+    """Save or update user and their Google token"""
+
+    # Check if user exists (by Google ID)
+    user_record = db.query(User).filter(User.id == user_id).first()
+
+    if not user_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found"
+        )
+
+
+    # Calculate expiration time
+    expires_at = None
+    if "expires_in" in refresh_token_data:
+        expires_at = datetime.utcnow() + timedelta(seconds=refresh_token_data["expires_in"])
+
+    # Deactivate old backend tokens
+    db.query(MyBackendToken).filter(
+        MyBackendToken.user_id == user_id,
+        MyBackendToken.is_active == "true"
+    ).update({"is_active": "false"})
+
+    # Save new MyBackend token
+    my_backend_token = MyBackendToken(
+        user_id=user_record.id,
+        access_token=refresh_token_data["access_token"],
+        refresh_token=refresh_token_data.get("refresh_token"),  # Google provides refresh tokens
+        token_type=refresh_token_data.get("token_type", "refresh"),
+        expires_in=refresh_token_data.get("expires_in"),
+        expires_at=expires_at,
+        scope=refresh_token_data.get("scope", "email profile")
+    )
+    db.add(my_backend_token)
+
+    db.commit()
+
+    return user_record
 
 
 # Google Authentication Endpoints
@@ -43,6 +83,7 @@ async def get_insta_auth_url(app: str, db: Session = Depends(get_db)):
 
 
 # Unified callback endpoint for both providers
+# used for redirecting back to the app
 @authentication_router.get("/auth/callback/{app}")
 async def auth_callback(request: Request, app: str):
     code = request.query_params.get("code")
@@ -85,26 +126,30 @@ async def exchange_code(
 
     try:
         # Exchange code for token
+        print(f"🙂 Exchanging code for token for {service}")
         token_data = await auth_service.exchange_code_for_token(code, app, state, db)
+        service_access_token = token_data["access_token"]
+        service_refresh_token = token_data["refresh_token"]
 
         # Get user info
-        user_info = await auth_service.get_user_info(token_data["access_token"])
+        print(f"🙂 Collecting user info for {service}")
+        user_info = await auth_service.get_user_info(service_access_token)
 
         # Save user and token to database
-        user_record = await auth_service.save_user_and_token(user_info, token_data, db)
+        print(f"🙂 Saving user and refresh token to DB")
+        user_record = await auth_service.save_user_and_token(user_info, service_refresh_token, db)
 
-        # Create JWT token
-        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-        access_token = create_access_token(
-            data={
-                "sub": user_record.id,
-                "email": user_record.email,
-                "name": user_record.display_name,
-                "picture": user_record.profile_picture_url,
-                "provider": user_record.primary_provider.value
-            },
-            expires_delta=access_token_expires
-        )
+        # Create access token
+        print(f"🙂 Creating access token")
+        access_token = create_access_token({"sub": str(user_record.id)}, type="access", expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
+
+        # Create refresh token
+        print(f"🙂 Creating refresh token")
+        refresh_token = create_access_token({"sub": str(user_record.id)}, type="refresh", expires_delta=timedelta(days=settings.refresh_token_expire_days))
+
+        # Save refresh token to database
+        print(f"🙂 Saving refresh token to DB")
+        await save_my_backend_refresh_token(user_record, refresh_token, db)
 
         return {
             "access_token": access_token,
@@ -126,123 +171,6 @@ async def exchange_code(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication failed"
-        )
-
-
-# Token refresh endpoints
-@authentication_router.post("/auth/refresh-google/{user_id}")
-async def refresh_google_token(
-        user_id: str,
-        db: Session = Depends(get_db)
-):
-    """Manually refresh a user's Google token"""
-    try:
-        # Get the current active token (this will automatically refresh if needed)
-        token = await google_auth_service.get_active_token(user_id, db)
-
-        return {
-            "message": "Google token refreshed successfully",
-            "token_info": {
-                "expires_at": token.expires_at.isoformat() if token.expires_at else None,
-                "scope": token.scope,
-                "is_active": token.is_active
-            }
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"🔴 Error refreshing Google token: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to refresh Google token"
-        )
-
-
-@authentication_router.post("/auth/refresh-instagram/{user_id}")
-async def refresh_instagram_token(
-        user_id: str,
-        db: Session = Depends(get_db)
-):
-    """Manually refresh a user's Instagram token"""
-    try:
-        # Get the current active token (this will automatically refresh if needed)
-        token = await insta_auth_service.get_active_token(user_id, db)
-
-        return {
-            "message": "Instagram token refreshed successfully",
-            "token_info": {
-                "expires_at": token.expires_at.isoformat() if token.expires_at else None,
-                "scope": token.scope,
-                "is_active": token.is_active
-            }
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"🔴 Error refreshing Instagram token: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to refresh Instagram token"
-        )
-
-
-# Get user's active tokens
-@authentication_router.get("/auth/tokens/{user_id}")
-async def get_user_tokens(
-        user_id: str,
-        db: Session = Depends(get_db)
-):
-    """Get all active tokens for a user"""
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-
-        tokens_info = {
-            "user_id": user_id,
-            "google_token": None,
-            "instagram_token": None
-        }
-
-        # Check for Google token
-        try:
-            google_token = await google_auth_service.get_active_token(user_id, db)
-            tokens_info["google_token"] = {
-                "expires_at": google_token.expires_at.isoformat() if google_token.expires_at else None,
-                "scope": google_token.scope,
-                "is_active": google_token.is_active,
-                "has_refresh_token": google_token.refresh_token is not None
-            }
-        except HTTPException:
-            # No active Google token
-            pass
-
-        # Check for Instagram token
-        try:
-            instagram_token = await insta_auth_service.get_active_token(user_id, db)
-            tokens_info["instagram_token"] = {
-                "expires_at": instagram_token.expires_at.isoformat() if instagram_token.expires_at else None,
-                "scope": instagram_token.scope,
-                "is_active": instagram_token.is_active
-            }
-        except HTTPException:
-            # No active Instagram token
-            pass
-
-        return tokens_info
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"🔴 Error getting user tokens: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get user tokens"
         )
 
 
@@ -291,55 +219,38 @@ async def revoke_token(
         )
 
 
-# Health check endpoint for tokens
-@authentication_router.get("/auth/health/{user_id}")
-async def check_tokens_health(
-        user_id: str,
-        db: Session = Depends(get_db)
-):
-    """Check the health status of all user tokens"""
+@authentication_router.post("/auth/refresh-token")
+async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
+    refresh_token = request.headers.get("X-Refresh-Token")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="Missing refresh token")
+
     try:
-        health_status = {
-            "user_id": user_id,
-            "google": {"status": "inactive", "needs_refresh": False, "expires_soon": False},
-            "instagram": {"status": "inactive", "needs_refresh": False, "expires_soon": False}
-        }
+        payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-        # Check Google token
-        try:
-            google_token = await google_auth_service.get_active_token(user_id, db)
-            health_status["google"]["status"] = "active"
+        # Optional: Check token against database (e.g., revoked or not)
+        # Optional: Ensure the refresh token hasn’t expired manually
 
-            if google_token.expires_at:
-                time_until_expiry = google_token.expires_at - datetime.utcnow()
-                if time_until_expiry.total_seconds() < 3600:  # Less than 1 hour
-                    health_status["google"]["expires_soon"] = True
-                if time_until_expiry.total_seconds() < 0:  # Already expired
-                    health_status["google"]["needs_refresh"] = True
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        except HTTPException:
-            pass
-
-        # Check Instagram token
-        try:
-            instagram_token = await insta_auth_service.get_active_token(user_id, db)
-            health_status["instagram"]["status"] = "active"
-
-            if instagram_token.expires_at:
-                time_until_expiry = instagram_token.expires_at - datetime.utcnow()
-                if time_until_expiry.total_seconds() < 3600:  # Less than 1 hour
-                    health_status["instagram"]["expires_soon"] = True
-                if time_until_expiry.total_seconds() < 0:  # Already expired
-                    health_status["instagram"]["needs_refresh"] = True
-
-        except HTTPException:
-            pass
-
-        return health_status
-
-    except Exception as e:
-        print(f"🔴 Error checking token health: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to check token health"
+        new_access_token = create_access_token(
+            data={
+                "sub": user.id,
+                "email": user.email,
+                "name": user.display_name,
+                "picture": user.profile_picture_url,
+                "provider": user.primary_provider.value
+            }
         )
+
+        return {"access_token": new_access_token}
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
