@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import Optional, Dict
 
 import jwt
@@ -152,6 +152,7 @@ async def exchange_code(
 
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "user": {
                 "id": user_record.id,
@@ -225,29 +226,62 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Missing refresh token")
 
     try:
+        print(f"🙂 Starting refresh token")
+        # 1. Check the refresh token exist in db
+        print(f"🙂 Checking refresh token in DB")
+        my_backend_token = db.query(MyBackendToken).filter(
+            MyBackendToken.access_token == refresh_token,
+            MyBackendToken.token_type == "refresh"
+        ).first()
+        if not my_backend_token:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        if not my_backend_token.is_active:
+            raise HTTPException(status_code=401, detail="Refresh token is inactive")
+
+        # 2. Decode the refresh token
+        print(f"🙂 Decoding refresh token")
         payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-        # Optional: Check token against database (e.g., revoked or not)
-        # Optional: Ensure the refresh token hasn’t expired manually
+        # 3. Ensure token is not expired
+        print(f"🙂 Checking refresh token expiration")
+        exp = payload.get("exp")
+        if exp is None:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        expiration_time = datetime.fromtimestamp(exp, tz=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if expiration_time < now:
+            raise HTTPException(status_code=401, detail="Refresh token expired")
 
+        # 4. Check the user exists
+        print(f"🙂 Checking user in DB")
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        new_access_token = create_access_token(
-            data={
-                "sub": user.id,
-                "email": user.email,
-                "name": user.display_name,
-                "picture": user.profile_picture_url,
-                "provider": user.primary_provider.value
-            }
-        )
+        # Create access token
+        print(f"🙂 Creating access token")
+        access_token = create_access_token({"sub": str(user_id)}, type="access",
+                                           expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
 
-        return {"access_token": new_access_token}
+        # Create refresh token
+        print(f"🙂 Creating refresh token")
+        refresh_token = create_access_token({"sub": str(user_id)}, type="refresh",
+                                            expires_delta=timedelta(days=settings.refresh_token_expire_days))
+
+        # Save refresh token to database
+        print(f"🙂 Saving refresh token to DB")
+        await save_my_backend_refresh_token(user_id, {"access_token": refresh_token, "token_type": "refresh",
+                                                             "expires_in": settings.refresh_token_expire_days * 86400},
+                                            db)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+        }
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
