@@ -25,7 +25,7 @@ async def generate_insta_post(request: TranscriptRequest):
 
 
     response = await openai_client.responses.create(
-        model="gpt-4o-transcribe",
+        model="gpt-4o-2024-11-20",
         temperature=1,
         input=[
             {
