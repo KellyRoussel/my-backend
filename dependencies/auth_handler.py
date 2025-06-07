@@ -12,6 +12,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 class AuthHandler:
     async def __call__(self, token: str = Depends(oauth2_scheme)):
+        print("🤍 Authenticating")
         if token is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -291,6 +291,7 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
 
 @authentication_router.post("/auth/validate-token")
 async def validate_token(request: Request, db: Session = Depends(get_db)):
+    print("🤍 Validating token")
     token = request.headers.get("Authorization")
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
