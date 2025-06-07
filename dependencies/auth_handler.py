@@ -14,7 +14,6 @@ class AuthHandler:
     async def __call__(self, token: str = Depends(oauth2_scheme)):
         print("🤍 Authenticating")
         if token is None:
-            print("🤍 Authenticating => token is None")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
@@ -22,7 +21,6 @@ class AuthHandler:
             )
 
         try:
-            print("🤍 Authenticating => token", token)
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
             print("🤍 Authenticating => payload", payload)
             email: str = payload.get("email")

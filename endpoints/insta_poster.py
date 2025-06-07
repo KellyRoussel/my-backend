@@ -1,12 +1,16 @@
 from fastapi import APIRouter
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 
 from config import settings
 
 insta_poster_router = APIRouter(prefix="/insta_poster", tags=["Insta Poster"])
 
+class TranscriptRequest(BaseModel):
+    transcript: str
+
 @insta_poster_router.post("/generate")
-async def generate_insta_post(transcript: str):
+async def generate_insta_post(request: TranscriptRequest):
     openai_client = AsyncOpenAI(
         api_key=settings.openai_instaposter_key
     )
@@ -30,7 +34,7 @@ async def generate_insta_post(transcript: str):
             },
             {
                 "role": "user",
-                "content": f"Transcript: {transcript}"
+                "content": f"Transcript: -------\n{request.transcript}\n-------"
             }
         ]
     )
