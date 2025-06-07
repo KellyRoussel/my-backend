@@ -287,3 +287,28 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Refresh token expired")
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@authentication_router.post("/auth/validate-token")
+async def validate_token(request: Request, db: Session = Depends(get_db)):
+    token = request.headers.get("Authorization")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        print("🤍 Validating token => payload", payload)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {"message": "Token is valid", "user_id": user_id}
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
