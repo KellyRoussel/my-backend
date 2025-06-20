@@ -12,7 +12,7 @@ class InstaService:
 
     async def _create_container(self, image_url: str, is_carousel_item: bool, access_token: str, caption: str = None, alt_text: str = None):
         try:
-            url = f"https://graph.facebook.com/v23.0/{settings.insta_client_id}/media"
+            url = f"https://graph.instagram.com/v23.0/{settings.insta_client_id}/media"
             data = {
                 "image_url": image_url,
                 "access_token": access_token
