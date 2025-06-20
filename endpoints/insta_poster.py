@@ -98,16 +98,13 @@ async def post_insta_post(images: list[UploadFile] = File(...),
             user_id=user_id,
             db=db,
         )
-        print(f"Posting to Instagram with access token: {insta_access_token}")
-        refreshed_data = await insta_auth_service.refresh_token(insta_access_token)
-
-        new_access_token = refreshed_data["access_token"]
-        
+        print(insta_access_token.access_token)
+        print(f"Expires at: {insta_access_token.expires_at}")
 
         await insta_service.create_post(
             images_url=[request.base_url._url.rstrip("/") + url for url in public_urls],
             caption=post_text,
-            access_token=new_access_token
+            access_token=insta_access_token.access_token
         )
     finally:
         # Clean up: delete files after posting
