@@ -10,22 +10,27 @@ from dependencies.auth_services.insta_auth_service import InstaAuthService
 
 class InstaService:
 
-    async def _create_container(self, image_url: str, is_carousel_item : bool, access_token: str):
+    async def _create_container(self, image_url: str, is_carousel_item: bool, access_token: str, caption: str = None, alt_text: str = None):
         try:
-            url = f"https://graph.instagram.com/v23.0/{settings.insta_client_id}/media"
-            header = {"Authorization": f"Bearer {access_token}"}
-            data = {"image_url": image_url, "is_carousel_item": is_carousel_item }
+            url = f"https://graph.facebook.com/v23.0/{settings.insta_client_id}/media"
+            data = {
+                "image_url": image_url,
+                "access_token": access_token
+            }
+            if is_carousel_item:
+                data["is_carousel_item"] = "true"
+            if caption:
+                data["caption"] = caption
+            if alt_text:
+                data["alt_text"] = alt_text
             async with httpx.AsyncClient() as client:
-                response = await client.post(headers=header, data=data, url=url)
-
+                response = await client.post(url=url, data=data)
                 response_data = response.json()
-
                 if "error" in response_data:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Insta create container error: {response_data['error']}"
                     )
-
             return response_data["id"]
         except Exception as e:
             raise Exception(f"_create_container: {e}")
