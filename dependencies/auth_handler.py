@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 
@@ -11,7 +11,7 @@ from models.authentication import User
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 class AuthHandler:
-    async def __call__(self, token: str = Depends(oauth2_scheme)):
+    async def __call__(self, request: Request, token: str = Depends(oauth2_scheme)):
         print("🤍 Authenticating")
         if token is None:
             raise HTTPException(
@@ -44,6 +44,8 @@ class AuthHandler:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
+            # Store user_id in request.state
+            request.state.user_id = sub
 
             return True
 

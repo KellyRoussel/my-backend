@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
+from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
 
 from dependencies.auth_handler import auth_handler
@@ -31,7 +32,7 @@ app.include_router(bobobidou_router, dependencies=[Depends(auth_handler)])
 app.include_router(authentication_router)
 app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 app.include_router(utils_router, dependencies=[Depends(auth_handler)])
-
+app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/health")
 def health():
     return {"status": "ok"}, 200
