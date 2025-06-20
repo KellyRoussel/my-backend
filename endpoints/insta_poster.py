@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from config import settings
 from database import get_db
-from dependencies.auth_services import insta_auth_service
+from dependencies.auth_services.insta_auth_service import insta_auth_service
 from dependencies.insta_service import InstaService, get_insta_service
 
 insta_poster_router = APIRouter(prefix="/insta_poster", tags=["Insta Poster"])
@@ -89,7 +89,6 @@ async def post_insta_post(images: list[UploadFile] = File(...),
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
         saved_files.append(file_path)
-        # Assuming your server is accessible at http://localhost:8000
         public_url = f"/static/uploads/{unique_name}"
         public_urls.append(public_url)
 
