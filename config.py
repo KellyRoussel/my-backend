@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     insta_token_url: str = ""
     google_user_info_url: str = ""
     insta_user_info_url: str = ""
+    insta_refresh_token_url: str = ""
     secret_key: str = ""
     algorithm: str = ""
     access_token_expire_minutes: int = 60

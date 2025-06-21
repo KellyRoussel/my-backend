@@ -94,6 +94,7 @@ class InstaAuthService(BaseAuthService):
         # Get long-lived token
         try:
             long_lived_token = await self._get_long_lived_token(access_token)
+            print(f"🔵 Long-lived token: {long_lived_token}")
         except Exception as e:
             print(f"🔴 Error getting long-lived token: {e}")
             raise HTTPException(
