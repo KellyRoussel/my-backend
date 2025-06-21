@@ -90,11 +90,12 @@ class InstaAuthService(BaseAuthService):
                 )
 
         access_token = token_response_data["access_token"]
+        print(f"🔵 token_response_data: {token_response_data}")
 
         # Get long-lived token
         try:
             long_lived_token = await self._get_long_lived_token(access_token)
-            print(f"🔵 Long-lived token: {long_lived_token}")
+            print(f"🔵 Long-lived token: {long_lived_token["access_token"]}")
         except Exception as e:
             print(f"🔴 Error getting long-lived token: {e}")
             raise HTTPException(
@@ -102,7 +103,7 @@ class InstaAuthService(BaseAuthService):
                 detail="Failed to get long-lived token"
             )
 
-        return {"access_token": access_token, "refresh_token": long_lived_token}
+        return {"access_token": long_lived_token["access_token"], "refresh_token": token_response_data["refresh_token"]}
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
