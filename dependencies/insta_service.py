@@ -89,7 +89,7 @@ class InstaService:
         for image_url in images_url:
             container_id = await self._create_container(image_url, is_carousel, insta_account_id, access_token)
             ids.append(container_id)
-
+        print(f"🔵 CAPTION: {caption}")
         if is_carousel:
             carousel_id = await self._create_carousel(ids, caption, insta_account_id, access_token)
             ids = [carousel_id]

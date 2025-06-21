@@ -49,8 +49,6 @@ class InstaAuthService(BaseAuthService):
     async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None) -> str:
         # Validate state parameter if provided
         if state and db:
-            print(f"==> AuthProvider.INSTAGRAM value: {AuthProvider.INSTAGRAM.value}")
-            print(f"==> AuthProvider.INSTAGRAM: {AuthProvider.INSTAGRAM}")
             auth_state = db.query(AuthState).filter(
                 AuthState.state == state,
                 AuthState.app_name == app,
@@ -90,12 +88,10 @@ class InstaAuthService(BaseAuthService):
                 )
 
         access_token = token_response_data["access_token"]
-        print(f"🔵 token_response_data: {token_response_data}")
 
         # Get long-lived token
         try:
             long_lived_token = await self._get_long_lived_token(access_token)
-            print(f"🔵 Long-lived token: {long_lived_token}")
         except Exception as e:
             print(f"🔴 Error getting long-lived token: {e}")
             raise HTTPException(
@@ -137,7 +133,6 @@ class InstaAuthService(BaseAuthService):
             existing_user.updated_at = datetime.utcnow()
             user_record = existing_user
         else:
-            print("❤️ Creating new user")
             # Create new user
             user_record = User(
                 id=str(uuid.uuid4()),
@@ -150,7 +145,6 @@ class InstaAuthService(BaseAuthService):
             db.add(user_record)
             db.flush()
             db.refresh(user_record)
-            print(f"🌟 New user id: {user_record.id}")
 
         # Deactivate old tokens
         db.query(InstagramToken).filter(

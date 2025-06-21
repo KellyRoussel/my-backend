@@ -98,7 +98,6 @@ async def post_insta_post(images: list[UploadFile] = File(...),
             user_id=user_id,
             db=db,
         )
-        print(insta_access_token.access_token)
 
         await insta_service.create_post(
             images_url=[request.base_url._url.rstrip("/") + url for url in public_urls],
@@ -115,7 +114,3 @@ async def post_insta_post(images: list[UploadFile] = File(...),
                 pass
 
     return JSONResponse(content={"status": "ok"}, status_code=200)
-
-# NOTE: In your main.py, ensure you have:
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-# so that /static/uploads/ is publicly accessible.
