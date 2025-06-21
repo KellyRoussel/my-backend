@@ -128,7 +128,6 @@ async def exchange_code(
         print(f"🙂 Exchanging code for token for {service}")
         token_data = await auth_service.exchange_code_for_token(code, app, state, db)
         service_access_token = token_data["access_token"]
-        service_refresh_token = token_data["refresh_token"]
 
         # Get user info
         print(f"🙂 Collecting user info for {service}")
@@ -136,7 +135,7 @@ async def exchange_code(
 
         # Save user and token to database
         print(f"🙂 Saving user and refresh token to DB")
-        user_record = await auth_service.save_user_and_token(user_info, service_refresh_token, db)
+        user_record = await auth_service.save_user_and_token(user_info, service_access_token, db)
 
         # Create access token
         print(f"🙂 Creating access token")

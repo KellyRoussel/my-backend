@@ -46,7 +46,7 @@ class InstaAuthService(BaseAuthService):
 
         return auth_url
 
-    async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None) -> Dict:
+    async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None) -> str:
         # Validate state parameter if provided
         if state and db:
             print(f"==> AuthProvider.INSTAGRAM value: {AuthProvider.INSTAGRAM.value}")
@@ -95,7 +95,7 @@ class InstaAuthService(BaseAuthService):
         # Get long-lived token
         try:
             long_lived_token = await self._get_long_lived_token(access_token)
-            print(f"🔵 Long-lived token: {long_lived_token["access_token"]}")
+            print(f"🔵 Long-lived token: {long_lived_token}")
         except Exception as e:
             print(f"🔴 Error getting long-lived token: {e}")
             raise HTTPException(
@@ -103,7 +103,7 @@ class InstaAuthService(BaseAuthService):
                 detail="Failed to get long-lived token"
             )
 
-        return {"access_token": long_lived_token["access_token"], "refresh_token": token_response_data["refresh_token"]}
+        return  long_lived_token
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
@@ -124,7 +124,7 @@ class InstaAuthService(BaseAuthService):
                 id=user_info["id"]
             )
 
-    async def save_user_and_token(self, user_info: UserResponse, refresh_token_data: Dict, db: Session) -> User:
+    async def save_user_and_token(self, user_info: UserResponse, access_token: str, db: Session) -> User:
         """Save or update user and their Instagram token"""
 
         # Check if user exists
@@ -152,11 +152,6 @@ class InstaAuthService(BaseAuthService):
             db.refresh(user_record)
             print(f"🌟 New user id: {user_record.id}")
 
-        # Calculate expiration time
-        expires_at = None
-        if "expires_in" in refresh_token_data:
-            expires_at = datetime.utcnow() + timedelta(seconds=refresh_token_data["expires_in"])
-
         # Deactivate old tokens
         db.query(InstagramToken).filter(
             InstagramToken.user_id == user_record.id,
@@ -166,10 +161,7 @@ class InstaAuthService(BaseAuthService):
         # Save new Instagram token
         instagram_token = InstagramToken(
             user_id=user_record.id,
-            access_token=refresh_token_data["access_token"],
-            token_type=refresh_token_data.get("token_type", "refresh"),
-            expires_in=refresh_token_data.get("expires_in"),
-            expires_at=expires_at,
+            access_token=access_token,
             scope="instagram_business_basic instagram_business_content_publish"
         )
         db.add(instagram_token)
@@ -179,7 +171,7 @@ class InstaAuthService(BaseAuthService):
 
         return user_record
 
-    async def refresh_token(self, access_token: str) -> Dict:
+    async def refresh_token(self, access_token: str) -> str:
         async with httpx.AsyncClient() as client:
             url = f"{settings.insta_refresh_token_url}?grant_type=ig_refresh_token&access_token={access_token}&client_secret={settings.insta_client_secret}"
             refresh_token_response = await client.get(url)
@@ -191,7 +183,7 @@ class InstaAuthService(BaseAuthService):
                     detail=f"Error refreshing token: {refreshed_token['error']}"
                 )
 
-            return refreshed_token
+            return refreshed_token["access_token"]
 
     async def get_active_token(self, user_id: str, db: Session) -> InstagramToken:
         """Get active Instagram token for user"""
@@ -206,32 +198,30 @@ class InstaAuthService(BaseAuthService):
                 detail="No active Instagram token found"
             )
 
-        # Check if token is expired
-        if token.expires_at and token.expires_at < datetime.utcnow():
-            # Try to refresh token
-            try:
-                refreshed_data = await self.refresh_token(token.access_token)
+        # Always refresh token if possible
+        
+        # Try to refresh token
+        try:
+            refreshed_access_token = await self.refresh_token(token.access_token)
 
-                # Update token
-                token.access_token = refreshed_data["access_token"]
-                if "expires_in" in refreshed_data:
-                    token.expires_at = datetime.utcnow() + timedelta(seconds=refreshed_data["expires_in"])
-                token.updated_at = datetime.utcnow()
+            # Update token
+            token.access_token = refreshed_access_token
+            token.updated_at = datetime.utcnow()
 
-                db.commit()
+            db.commit()
 
-            except Exception as e:
-                # Mark token as inactive
-                token.is_active = "false"
-                db.commit()
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Instagram token expired and refresh failed"
-                )
+        except Exception as e:
+            # Mark token as inactive
+            token.is_active = "false"
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Instagram token expired and refresh failed"
+            )
 
         return token
 
-    async def _get_long_lived_token(self, access_token: str) -> Dict:
+    async def _get_long_lived_token(self, access_token: str) -> str:
         """Private method to get long-lived token"""
         async with httpx.AsyncClient() as client:
             url = f"{settings.insta_long_lived_token_url}?grant_type=ig_exchange_token&access_token={access_token}&client_secret={settings.insta_client_secret}"
@@ -244,7 +234,7 @@ class InstaAuthService(BaseAuthService):
                     detail=f"Error getting long-lived token: {long_lived_token['error']}"
                 )
 
-            return long_lived_token
+        return long_lived_token["access_token"]
 
 
 insta_auth_service = InstaAuthService()
