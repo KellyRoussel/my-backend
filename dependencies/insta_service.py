@@ -11,10 +11,9 @@ from dependencies.auth_services.insta_auth_service import InstaAuthService
 class InstaService:
 
 
-    async def _create_container(self, image_url: str, is_carousel_item: bool, access_token: str, caption: str = None, alt_text: str = None):
+    async def _create_container(self, image_url: str, is_carousel_item: bool, insta_account_id: str, access_token: str, caption: str = None, alt_text: str = None):
         try:
-            print(f"ACCESS TOKEN: {access_token}")
-            url = f"https://graph.instagram.com/v23.0/{settings.insta_client_id}/media"
+            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media"
             data = {
                 "image_url": image_url,
                 "access_token": access_token
@@ -37,9 +36,9 @@ class InstaService:
         except Exception as e:
             raise Exception(f"_create_container: {e}")
 
-    async def _create_carousel(self, container_ids: List[str], caption: str, access_token: str):
+    async def _create_carousel(self, container_ids: List[str], caption: str, insta_account_id: str, access_token: str):
         try:
-            url = f"https://graph.instagram.com/v23.0/{settings.insta_client_id}/media"
+            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media"
             header = {"Authorization": f"Bearer {access_token}"}
             data = {
                 "caption": caption,
@@ -61,9 +60,9 @@ class InstaService:
         except Exception as e:
             raise Exception(f"_create_carousel: {e}")
 
-    async def _publish(self, container_or_carousel_id: str, access_token: str):
+    async def _publish(self, container_or_carousel_id: str, insta_account_id: str, access_token: str):
         try:
-            url = f"https://graph.instagram.com/v23.0/{settings.insta_client_id}/media_publish"
+            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media_publish"
             header = {"Authorization": f"Bearer {access_token}"}
             data = {
                 "creation_id": container_or_carousel_id
@@ -83,19 +82,19 @@ class InstaService:
         except Exception as e:
             raise Exception(f"_publish: {e}")
 
-    async def create_post(self, images_url: List[str], caption: str, access_token: str):
+    async def create_post(self, images_url: List[str], caption: str, insta_account_id: str, access_token: str):
     
         is_carousel = len(images_url) > 1
         ids = []
         for image_url in images_url:
-            container_id = await self._create_container(image_url, is_carousel, access_token)
+            container_id = await self._create_container(image_url, is_carousel, insta_account_id, access_token)
             ids.append(container_id)
 
         if is_carousel:
-            carousel_id = await self._create_carousel(ids, caption, access_token)
+            carousel_id = await self._create_carousel(ids, caption, insta_account_id, access_token)
             ids = [carousel_id]
 
-        await self._publish(ids[0], access_token)
+        await self._publish(ids[0], insta_account_id, access_token)
 
         return
         

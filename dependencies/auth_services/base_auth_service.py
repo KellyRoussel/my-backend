@@ -23,7 +23,7 @@ class BaseAuthService(ABC):
         pass
 
     @abstractmethod
-    async def save_user_and_token(self, user_info: UserResponse, refresh_token_data: Dict, db: Session) -> object:
+    async def save_user_and_token(self, user_info: UserResponse, token_info: Dict, db: Session) -> object:
         """Save or update user and their tokens in database"""
         pass
 

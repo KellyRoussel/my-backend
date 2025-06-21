@@ -103,6 +103,7 @@ async def post_insta_post(images: list[UploadFile] = File(...),
         await insta_service.create_post(
             images_url=[request.base_url._url.rstrip("/") + url for url in public_urls],
             caption=post_text,
+            insta_account_id=insta_access_token.account_id,
             access_token=insta_access_token.access_token
         )
     finally:

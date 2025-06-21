@@ -35,6 +35,7 @@ class InstagramToken(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    account_id = Column(String, nullable=False)  # Instagram Business Account ID
     access_token = Column(Text, nullable=False)
     scope = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

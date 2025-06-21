@@ -132,9 +132,13 @@ async def exchange_code(
         print(f"🙂 Collecting user info for {service}")
         user_info = await auth_service.get_user_info(service_access_token)
 
+        token_info = {
+            "access_token": service_access_token,
+        }
+
         # Save user and token to database
         print(f"🙂 Saving user and refresh token to DB")
-        user_record = await auth_service.save_user_and_token(user_info, service_access_token, db)
+        user_record = await auth_service.save_user_and_token(user_info, token_info, db)
 
         # Create access token
         print(f"🙂 Creating access token")

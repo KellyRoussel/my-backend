@@ -124,7 +124,7 @@ class InstaAuthService(BaseAuthService):
                 id=user_info["id"]
             )
 
-    async def save_user_and_token(self, user_info: UserResponse, access_token: str, db: Session) -> User:
+    async def save_user_and_token(self, user_info: UserResponse, token_info: Dict, db: Session) -> User:
         """Save or update user and their Instagram token"""
 
         # Check if user exists
@@ -161,7 +161,8 @@ class InstaAuthService(BaseAuthService):
         # Save new Instagram token
         instagram_token = InstagramToken(
             user_id=user_record.id,
-            access_token=access_token,
+            access_token=token_info['access_token'],
+            account_id=user_info.id,
             scope="instagram_business_basic instagram_business_content_publish"
         )
         db.add(instagram_token)
