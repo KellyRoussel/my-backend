@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     google_token_url: str = ""
     insta_token_url: str = ""
     google_user_info_url: str = ""
-    insta_user_info_url: str = ""
+    insta_graph_api: str = ""
     insta_refresh_token_url: str = ""
     secret_key: str = ""
     algorithm: str = ""

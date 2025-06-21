@@ -103,7 +103,7 @@ class InstaAuthService(BaseAuthService):
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
-            url = f"{settings.insta_user_info_url}?fields=id,username,profile_picture_url&access_token={access_token}"
+            url = f"{settings.insta_graph_api}/me?fields=id,username,profile_picture_url&access_token={access_token}"
             user_info_response = await client.get(url)
             user_info = user_info_response.json()
 

@@ -13,7 +13,7 @@ class InstaService:
 
     async def _create_container(self, image_url: str, is_carousel_item: bool, insta_account_id: str, access_token: str, caption: str = None, alt_text: str = None):
         try:
-            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media"
+            url = f"{settings.insta_graph_api}/{insta_account_id}/media"
             data = {
                 "image_url": image_url,
                 "access_token": access_token
@@ -38,7 +38,7 @@ class InstaService:
 
     async def _create_carousel(self, container_ids: List[str], caption: str, insta_account_id: str, access_token: str):
         try:
-            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media"
+            url = f"{settings.insta_graph_api}/{insta_account_id}/media"
             data = {
                 "caption": caption,
                 "media_type": "CAROUSEL",
@@ -62,7 +62,7 @@ class InstaService:
 
     async def _publish(self, container_or_carousel_id: str, insta_account_id: str, access_token: str):
         try:
-            url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media_publish"
+            url = f"{settings.insta_graph_api}/{insta_account_id}/media_publish"
             header = {"Authorization": f"Bearer {access_token}"}
             data = {
                 "creation_id": container_or_carousel_id
