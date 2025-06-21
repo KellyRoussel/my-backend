@@ -39,14 +39,14 @@ class InstaService:
     async def _create_carousel(self, container_ids: List[str], caption: str, insta_account_id: str, access_token: str):
         try:
             url = f"https://graph.instagram.com/v23.0/{insta_account_id}/media"
-            header = {"Authorization": f"Bearer {access_token}"}
             data = {
                 "caption": caption,
                 "media_type": "CAROUSEL",
-                "children": ",".join(container_ids)
+                "children": ",".join(container_ids),
+                "access_token": access_token
             }
             async with httpx.AsyncClient() as client:
-                response = await client.post(headers=header, data=data, url=url)
+                response = await client.post(data=data, url=url)
 
                 response_data = response.json()
 
@@ -87,9 +87,8 @@ class InstaService:
         is_carousel = len(images_url) > 1
         ids = []
         for image_url in images_url:
-            container_id = await self._create_container(image_url, is_carousel, insta_account_id, access_token)
+            container_id = await self._create_container(image_url, is_carousel, insta_account_id, access_token, caption=caption if not is_carousel else None)
             ids.append(container_id)
-        print(f"🔵 CAPTION: {caption}")
         if is_carousel:
             carousel_id = await self._create_carousel(ids, caption, insta_account_id, access_token)
             ids = [carousel_id]
