@@ -65,6 +65,9 @@ async def generate_insta_post(request: TranscriptRequest):
     if response.output_text in ["<Unexpected request>", "'<Unexpected request>'"]:
         raise HTTPException(status_code=400, detail="Unexpected request")
 
+    # if the response starts is surrounded by quotes, remove them
+    if response.output_text.startswith("\"") and response.output_text.endswith("\""):
+        response.output_text = response.output_text[1:-1]
 
     return response.output_text
 
