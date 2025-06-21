@@ -99,7 +99,6 @@ async def post_insta_post(images: list[UploadFile] = File(...),
             db=db,
         )
         print(insta_access_token.access_token)
-        print(f"Expires at: {insta_access_token.expires_at}")
 
         await insta_service.create_post(
             images_url=[request.base_url._url.rstrip("/") + url for url in public_urls],
