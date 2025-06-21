@@ -126,8 +126,7 @@ async def exchange_code(
     try:
         # Exchange code for token
         print(f"🙂 Exchanging code for token for {service}")
-        token_data = await auth_service.exchange_code_for_token(code, app, state, db)
-        service_access_token = token_data["access_token"]
+        service_access_token = await auth_service.exchange_code_for_token(code, app, state, db)
 
         # Get user info
         print(f"🙂 Collecting user info for {service}")

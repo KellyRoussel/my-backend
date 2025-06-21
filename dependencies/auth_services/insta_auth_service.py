@@ -103,7 +103,7 @@ class InstaAuthService(BaseAuthService):
                 detail="Failed to get long-lived token"
             )
 
-        return  long_lived_token
+        return long_lived_token
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
