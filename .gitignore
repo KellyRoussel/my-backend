@@ -8,3 +8,5 @@ kelly_*
 *.jpg
 *.jpeg
 tests_files/
+
+db_backups/
