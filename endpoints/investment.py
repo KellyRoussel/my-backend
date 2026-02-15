@@ -400,6 +400,19 @@ async def generate_recommendation(
 
 # --- Profile ---
 
+@investment_router.get("/profile", response_model=InvestmentProfileResponse)
+def get_investment_profile(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> InvestmentProfileResponse:
+    user_id = _get_user_id(request)
+    profile = _get_or_create_profile(user_id, db)
+    return InvestmentProfileResponse(
+        currency_preference=profile.currency_preference,
+        risk_tolerance=profile.risk_tolerance.value if profile.risk_tolerance else None,
+    )
+
+
 @investment_router.patch("/profile", response_model=InvestmentProfileResponse)
 def update_investment_profile(
     payload: InvestmentProfileUpdate,
