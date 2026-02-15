@@ -1,7 +1,7 @@
 from pydantic_settings import SettingsConfigDict, BaseSettings
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env")
+    model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env", env_file_encoding="latin-1", extra="ignore")
 
     openai_bobobidou_key: str = ""
     openai_instaposter_key: str = ""
@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     insta_long_lived_token_url:str = ""
     database_url: str = ""
+    openfigi_api_key: str = ""
+    openai_investment_key: str = ""
+    web_frontend_url: str = "http://localhost:5173"
 
 
 settings = Settings()
