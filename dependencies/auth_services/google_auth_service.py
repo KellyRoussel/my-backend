@@ -15,7 +15,7 @@ from dependencies.auth_services.base_auth_service import BaseAuthService
 
 class GoogleAuthService(BaseAuthService):
 
-    async def get_auth_url(self, app: str, db: Session = None) -> str:
+    async def get_auth_url(self, app: str, db: Session = None, override_redirect_uri: str = None) -> str:
         # Generate state for CSRF protection
         state = secrets.token_urlsafe(32)
 
@@ -31,9 +31,10 @@ class GoogleAuthService(BaseAuthService):
             db.add(auth_state)
             db.commit()
 
+        redirect_uri = override_redirect_uri or (settings.auth_redirect_uri + f"/{app}")
         params = {
             "client_id": settings.google_client_id,
-            "redirect_uri": settings.auth_redirect_uri + f"/{app}",
+            "redirect_uri": redirect_uri,
             "response_type": "code",
             "scope": "email profile",
             "access_type": "offline",
@@ -46,7 +47,7 @@ class GoogleAuthService(BaseAuthService):
 
         return auth_url
 
-    async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None) -> Dict:
+    async def exchange_code_for_token(self, code: str, app: str, state: str = None, db: Session = None, override_redirect_uri: str = None) -> Dict:
         # Validate state parameter if provided
         if state and db:
             auth_state = db.query(AuthState).filter(
@@ -66,11 +67,12 @@ class GoogleAuthService(BaseAuthService):
             db.delete(auth_state)
             db.commit()
 
+        redirect_uri = override_redirect_uri or (settings.auth_redirect_uri + f"/{app}")
         token_request_data = {
             "code": code,
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
-            "redirect_uri": settings.auth_redirect_uri + f"/{app}",
+            "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
         }
 
@@ -88,7 +90,7 @@ class GoogleAuthService(BaseAuthService):
 
     async def get_user_info(self, access_token: str) -> UserResponse:
         async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {access_token}"}
+            headers = {"Authorization": f"Bearer {access_token['access_token']}"}
             user_info_response = await client.get(settings.google_user_info_url, headers=headers)
             user_info = user_info_response.json()
 

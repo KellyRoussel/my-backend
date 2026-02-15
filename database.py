@@ -1,11 +1,26 @@
+from urllib.parse import urlparse, quote, urlunparse
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
 from config import settings
 
+
+def _sanitize_db_url(url: str) -> str:
+    """URL-encode the password in a database URL to handle special characters."""
+    parsed = urlparse(url)
+    if parsed.password:
+        encoded_password = quote(parsed.password, safe="")
+        netloc = f"{parsed.username}:{encoded_password}@{parsed.hostname}"
+        if parsed.port:
+            netloc += f":{parsed.port}"
+        return urlunparse(parsed._replace(netloc=netloc))
+    return url
+
+
 # Get database URL from environment
-DATABASE_URL = settings.database_url
+DATABASE_URL = _sanitize_db_url(settings.database_url)
 
 # Create engine
 engine = create_engine(

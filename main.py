@@ -10,6 +10,7 @@ from endpoints.authentication import authentication_router
 from endpoints.bobobidou import bobobidou_router
 from endpoints.insta_poster import insta_poster_router
 from endpoints.utils import utils_router
+from endpoints.investment import investment_router
 
 
 class MyBackendState(State):
@@ -32,6 +33,7 @@ app.include_router(bobobidou_router, dependencies=[Depends(auth_handler)])
 app.include_router(authentication_router)
 app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 app.include_router(utils_router, dependencies=[Depends(auth_handler)])
+app.include_router(investment_router, dependencies=[Depends(auth_handler)])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/health")
 def health():

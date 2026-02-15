@@ -69,8 +69,8 @@ async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, 
 
 # Google Authentication Endpoints
 @authentication_router.get("/login/google/{app}")
-async def get_google_auth_url(app: str, db: Session = Depends(get_db)):
-    auth_url = await google_auth_service.get_auth_url(app, db)
+async def get_google_auth_url(app: str, redirect_uri_override: str = None, db: Session = Depends(get_db)):
+    auth_url = await google_auth_service.get_auth_url(app, db, override_redirect_uri=redirect_uri_override)
     return {"authorization_url": auth_url}
 
 
@@ -103,6 +103,26 @@ async def auth_callback(request: Request, app: str):
     return RedirectResponse(redirect_url)
 
 
+# Web callback endpoint for browser-based apps (redirects to frontend instead of deep link)
+@authentication_router.get("/auth/web-callback/{app}")
+async def web_auth_callback(request: Request, app: str):
+    code = request.query_params.get("code")
+    state = request.query_params.get("state") or ""
+    error = request.query_params.get("error")
+
+    if error:
+        return RedirectResponse(f"{settings.web_frontend_url}/auth/callback/{app}?error={error}")
+
+    if not code:
+        return RedirectResponse(f"{settings.web_frontend_url}/auth/callback/{app}?error=no_code")
+
+    redirect_url = f"{settings.web_frontend_url}/auth/callback/{app}?code={code}"
+    if state:
+        redirect_url += f"&state={state}"
+
+    return RedirectResponse(redirect_url)
+
+
 # Unified token exchange endpoint
 @authentication_router.get("/auth/exchange/{app}")
 async def exchange_code(
@@ -110,6 +130,7 @@ async def exchange_code(
         code: str,
         service: str,  # 'google' or 'instagram'
         state: str = None,
+        redirect_uri_override: str = None,
         db: Session = Depends(get_db)
 ):
     # Select the appropriate service
@@ -126,15 +147,15 @@ async def exchange_code(
     try:
         # Exchange code for token
         print(f"🙂 Exchanging code for token for {service}")
-        service_access_token = await auth_service.exchange_code_for_token(code, app, state, db)
-
+        service_access_token = await auth_service.exchange_code_for_token(code, app, state, db, override_redirect_uri=redirect_uri_override)
+        
         # Get user info
         print(f"🙂 Collecting user info for {service}")
         user_info = await auth_service.get_user_info(service_access_token)
 
         token_info = {
             "access_token": service_access_token,
-        }
+        } if isinstance(service_access_token, str) else service_access_token
 
         # Save user and token to database
         print(f"🙂 Saving user and refresh token to DB")
