@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
 
+from config import settings
 from dependencies.auth_handler import auth_handler
 from dependencies.auth_services.google_auth_service import GoogleAuthService
 from endpoints.authentication import authentication_router
@@ -27,6 +29,15 @@ async def lifespan(application: MyBackendAPI):
 app = MyBackendAPI(
     lifespan=lifespan,
     docs_url="/docs",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        settings.web_frontend_url,
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(bobobidou_router, dependencies=[Depends(auth_handler)])
