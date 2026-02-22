@@ -14,19 +14,29 @@ from dependencies.investment.yahoo_finance import YahooFinanceClient
 from dependencies.investment.currency_converter import CurrencyConverter
 from dependencies.investment.portfolio_calculator import PortfolioCalculator
 from dependencies.investment.ai_agents import launch_agents_stream
+from dependencies.investment.ai_agents_v2 import InvestmentWorkflowV2
 from domain.entities.investment import Investment as DomainInvestment, Vehicle
 from domain.value_objects import Money
-from models.database_models import Investment as DBInvestment, InvestmentProfile, RiskTolerance
+from models.database_models import (
+    Investment as DBInvestment,
+    InvestmentReport,
+    InvestmentProfile,
+    InvestmentWatchlist,
+    RiskTolerance,
+)
 from models.investment import (
     InvestmentCreateRequest,
     InvestmentUpdateRequest,
     InvestmentProfileUpdate,
     InvestmentResponse,
     InvestmentProfileResponse,
+    InvestmentReportResponse,
     PriceHistoryResponse,
     PortfolioHistoryPoint,
     PortfolioHistoryResponse,
     PortfolioMetrics,
+    WatchlistItemCreate,
+    WatchlistItemResponse,
 )
 from repositories import InvestmentRepository
 
@@ -76,6 +86,10 @@ def _build_investment_response(investment: DBInvestment) -> InvestmentResponse:
         dividend_yield=float(investment.dividend_yield) if investment.dividend_yield is not None else None,
         expense_ratio=float(investment.expense_ratio) if investment.expense_ratio is not None else None,
         notes=investment.notes,
+        investment_thesis=investment.investment_thesis,
+        thesis_status=investment.thesis_status,
+        alert_threshold_pct=float(investment.alert_threshold_pct) if investment.alert_threshold_pct is not None else None,
+        account_type=investment.account_type,
         is_active=investment.is_active,
     )
 
@@ -154,6 +168,11 @@ def create_investment(
         sector=profile["sector"],
         industry=profile["industry"],
         market_cap_category=profile["market_cap_category"],
+        notes=payload.notes,
+        investment_thesis=payload.investment_thesis,
+        thesis_status=payload.thesis_status,
+        alert_threshold_pct=_to_decimal(payload.alert_threshold_pct),
+        account_type=payload.account_type,
     )
 
     return _build_investment_response(created)
@@ -410,6 +429,11 @@ def get_investment_profile(
     return InvestmentProfileResponse(
         currency_preference=profile.currency_preference,
         risk_tolerance=profile.risk_tolerance.value if profile.risk_tolerance else None,
+        investment_horizon=profile.investment_horizon,
+        ethical_exclusions=profile.ethical_exclusions,
+        country=profile.country,
+        interests=profile.interests,
+        last_macro_context=profile.last_macro_context,
     )
 
 
@@ -426,6 +450,14 @@ def update_investment_profile(
         profile.currency_preference = payload.currency_preference
     if payload.risk_tolerance is not None:
         profile.risk_tolerance = RiskTolerance(payload.risk_tolerance)
+    if payload.investment_horizon is not None:
+        profile.investment_horizon = payload.investment_horizon
+    if payload.ethical_exclusions is not None:
+        profile.ethical_exclusions = payload.ethical_exclusions
+    if payload.country is not None:
+        profile.country = payload.country
+    if payload.interests is not None:
+        profile.interests = payload.interests
 
     db.commit()
     db.refresh(profile)
@@ -433,4 +465,136 @@ def update_investment_profile(
     return InvestmentProfileResponse(
         currency_preference=profile.currency_preference,
         risk_tolerance=profile.risk_tolerance.value if profile.risk_tolerance else None,
+        investment_horizon=profile.investment_horizon,
+        ethical_exclusions=profile.ethical_exclusions,
+        country=profile.country,
+        interests=profile.interests,
+        last_macro_context=profile.last_macro_context,
     )
+
+
+# --- Recommendations v2 (DeepAgents) ---
+
+@investment_router.get("/recommendations/generate/v2")
+async def generate_recommendation_v2(
+    request: Request,
+    budget_eur: float = Query(..., description="Budget available for investment (EUR)", gt=0),
+) -> StreamingResponse:
+    """V2: DeepAgents monthly investment workflow with SSE streaming.
+
+    Runs a structured workflow (portfolio review → macro scan →
+    opportunity research → decision & thesis) and streams progress events.
+
+    The `budget_eur` parameter is required: the agent will not recommend
+    any asset whose unit price exceeds this value.
+
+    Event types:
+    - workflow_start: workflow begins
+    - step_start / step_complete: sub-agent step lifecycle
+    - tool_call: base tool invocations (web search, yfinance, etc.)
+    - token: streaming LLM tokens from any agent
+    - workflow_complete: report saved, report_id included
+    - error: unrecoverable error
+    """
+    user_id = _get_user_id(request)
+    workflow = InvestmentWorkflowV2(user_id=user_id, budget_eur=budget_eur)
+
+    async def event_generator():
+        async for sse_line in workflow.stream():
+            yield sse_line
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@investment_router.get("/recommendations/history", response_model=list[InvestmentReportResponse])
+def list_monthly_reports(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> list[InvestmentReportResponse]:
+    """List the last 12 completed monthly reports for the authenticated user."""
+    user_id = _get_user_id(request)
+    reports = (
+        db.query(InvestmentReport)
+        .filter(
+            InvestmentReport.user_id == user_id,
+            InvestmentReport.status == "completed",
+        )
+        .order_by(InvestmentReport.report_date.desc())
+        .limit(12)
+        .all()
+    )
+    return reports
+
+
+# --- Watchlist ---
+
+@investment_router.get("/watchlist", response_model=list[WatchlistItemResponse])
+def list_watchlist(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> list[WatchlistItemResponse]:
+    """Return the user's active watchlist items."""
+    user_id = _get_user_id(request)
+    items = (
+        db.query(InvestmentWatchlist)
+        .filter(
+            InvestmentWatchlist.user_id == user_id,
+            InvestmentWatchlist.is_active == True,
+        )
+        .order_by(InvestmentWatchlist.created_at.desc())
+        .all()
+    )
+    return items
+
+
+@investment_router.post("/watchlist", response_model=WatchlistItemResponse, status_code=201)
+def add_watchlist_item(
+    payload: WatchlistItemCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> WatchlistItemResponse:
+    """Add a new item to the user's watchlist."""
+    from uuid import uuid4 as _uuid4
+    user_id = _get_user_id(request)
+    item = InvestmentWatchlist(
+        id=str(_uuid4()),
+        user_id=user_id,
+        name=payload.name,
+        symbol=payload.symbol,
+        sector=payload.sector,
+        country=payload.country,
+        reason=payload.reason,
+        priority=payload.priority,
+        source="manual",
+        is_active=True,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@investment_router.delete("/watchlist/{item_id}")
+def remove_watchlist_item(
+    item_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Remove an item from the watchlist (soft-delete)."""
+    user_id = _get_user_id(request)
+    item = db.query(InvestmentWatchlist).filter(InvestmentWatchlist.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Watchlist item not found.")
+    if item.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+    item.is_active = False
+    db.commit()
+    return {"detail": "Item removed from watchlist."}

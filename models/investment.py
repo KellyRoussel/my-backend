@@ -15,6 +15,10 @@ class InvestmentCreateRequest(BaseModel):
     isin: Optional[str] = Field(None, min_length=12, max_length=12)
     quantity: float = Field(..., gt=0)
     purchase_date: date
+    notes: Optional[str] = None
+    investment_thesis: Optional[str] = None
+    thesis_status: Optional[str] = Field(None, pattern="^(valid|watch|reconsider)$")
+    alert_threshold_pct: Optional[float] = Field(None, description="Alert threshold in %, e.g. -20.0")
 
     @model_validator(mode="after")
     def validate_identifiers(self) -> "InvestmentCreateRequest":
@@ -34,6 +38,10 @@ class InvestmentUpdateRequest(BaseModel):
 class InvestmentProfileUpdate(BaseModel):
     currency_preference: Optional[str] = Field(None, min_length=3, max_length=3)
     risk_tolerance: Optional[str] = Field(None)
+    investment_horizon: Optional[str] = Field(None, max_length=50)
+    ethical_exclusions: Optional[str] = None
+    country: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 3-letter country code (e.g. FRA)")
+    interests: Optional[str] = None
 
 
 # --- Response schemas ---
@@ -59,6 +67,10 @@ class InvestmentResponse(BaseModel):
     dividend_yield: Optional[float] = None
     expense_ratio: Optional[float] = None
     notes: Optional[str] = None
+    investment_thesis: Optional[str] = None
+    thesis_status: Optional[str] = None
+    alert_threshold_pct: Optional[float] = None
+    account_type: Optional[str] = None
     is_active: bool
 
 
@@ -175,3 +187,53 @@ class InvestmentProfileResponse(BaseModel):
 
     currency_preference: str
     risk_tolerance: Optional[str] = None
+    investment_horizon: Optional[str] = None
+    ethical_exclusions: Optional[str] = None
+    country: Optional[str] = None
+    interests: Optional[str] = None
+    last_macro_context: Optional[str] = None
+
+
+# --- Watchlist schemas ---
+
+class WatchlistItemCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    symbol: Optional[str] = Field(None, max_length=20)
+    sector: Optional[str] = None
+    country: Optional[str] = Field(None, min_length=2, max_length=3)
+    reason: Optional[str] = None
+    priority: str = Field(default="normal", pattern="^(high|normal|low)$")
+
+
+class WatchlistItemResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: str
+    symbol: Optional[str] = None
+    name: str
+    sector: Optional[str] = None
+    country: Optional[str] = None
+    reason: Optional[str] = None
+    source: Optional[str] = None
+    priority: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+
+# --- Monthly report schemas ---
+
+class InvestmentReportResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: str
+    user_id: str
+    report_date: date
+    final_recommendation: Optional[str] = None
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    tokens_input: Optional[int] = None
+    tokens_cached: Optional[int] = None
+    tokens_output: Optional[int] = None
+    cost_usd: Optional[float] = None
+    model_used: Optional[str] = None
