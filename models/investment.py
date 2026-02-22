@@ -232,3 +232,8 @@ class InvestmentReportResponse(BaseModel):
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
+    tokens_input: Optional[int] = None
+    tokens_cached: Optional[int] = None
+    tokens_output: Optional[int] = None
+    cost_usd: Optional[float] = None
+    model_used: Optional[str] = None

@@ -46,7 +46,8 @@ Using all outputs from steps 1–3:
 #### 4.a Write and save the final report.
 Call `save_final_report(<full_markdown_report>)` with a complete report in mardown format including all your conclusions and recommendations.
 You can recommend up to 2 investments if the budget allows and conviction warrants it, but quality over quantity is the default. If you recommend a second investment, clearly explain why both are compelling and how you allocated the budget between them.
-This report should be comprehensive and well-structured for the user to understand your reasoning, but also concise and focused on actionable insights.
+This report should be concise and well-structured for the user to understand your reasoning, but also concise and focused on actionable insights.
+Be careful not to make it too long or overwhelming — the user should be able to grasp the key points and recommendations quickly. Use bullet points. Do not include every detail, specifically avoid general statements. Focus on the most important insights and the rationale behind your recommendations.
 
 ### Reminders
 - Ethical exclusions from the user's profile are already applied by sub-agents — do not recommend excluded assets

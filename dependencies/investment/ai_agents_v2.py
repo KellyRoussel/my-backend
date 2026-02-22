@@ -37,7 +37,20 @@ from models.database_models import InvestmentReport
 
 # Model used for all agents — initialized lazily in InvestmentWorkflowV2
 # to keep the API key reference in one place (settings.openai_investment_key)
-_MODEL_NAME = "gpt-4.1-2025-04-14" #"gpt-4.1-2025-04-14"
+_MODEL_NAME = "gpt-5-mini" #"gpt-4.1-2025-04-14"
+
+# Pricing per 1M tokens (USD). Update when OpenAI changes rates.
+# cache_read_per_1m: price for tokens served from the prompt cache (subset of input_tokens).
+# Fresh input cost = (input_tokens - cached_tokens) * input_per_1m / 1e6
+# Cached input cost = cached_tokens * cache_read_per_1m / 1e6
+_MODEL_PRICING: dict[str, dict[str, float]] = {
+    "gpt-4.1-mini": {"input_per_1m": 0.40, "cache_read_per_1m": 0.10, "output_per_1m": 1.60},
+    "gpt-4.1":      {"input_per_1m": 2.00, "cache_read_per_1m": 0.50, "output_per_1m": 8.00},
+    "gpt-5.1":      {"input_per_1m": 1.25, "cache_read_per_1m": 0.13, "output_per_1m": 10.00},
+    "gpt-5-mini":   {"input_per_1m": 0.25, "cache_read_per_1m": 0.03, "output_per_1m": 2.00},
+    # Fallback — conservative estimate (no cache discount assumed)
+    "default":      {"input_per_1m": 2.00, "cache_read_per_1m": 2.00, "output_per_1m": 8.00},
+}
 
 # Tool subsets per sub-agent (by tool name).
 # Static data tools (get_portfolio_positions, get_portfolio_concentration,
@@ -83,6 +96,10 @@ class InvestmentWorkflowV2:
         self.session_id = str(uuid4())
         self.report_id = str(uuid4())
         self.workspace_dir = f"{self.WORKSPACE_BASE}/{self.session_id}"
+        # Accumulated token counts across all agents in this run
+        self._tokens_input: int = 0   # total input tokens (fresh + cached)
+        self._tokens_cached: int = 0  # subset served from prompt cache
+        self._tokens_output: int = 0
 
     # ------------------------------------------------------------------
     # Setup / teardown
@@ -113,8 +130,10 @@ class InvestmentWorkflowV2:
         finally:
             db.close()
 
-    def _mark_report_complete(self) -> str:
-        """Mark the report as completed and return the final_recommendation text."""
+    def _mark_report_complete(
+        self, tokens_input: int, tokens_cached: int, tokens_output: int, cost_usd: float
+    ) -> str:
+        """Mark the report as completed, save token/cost data, and return the final_recommendation text."""
         db = SessionLocal()
         try:
             report = (
@@ -126,9 +145,17 @@ class InvestmentWorkflowV2:
             if report:
                 report.status = "completed"
                 report.completed_at = datetime.utcnow()
+                report.tokens_input = tokens_input
+                report.tokens_cached = tokens_cached
+                report.tokens_output = tokens_output
+                report.cost_usd = round(cost_usd, 6)
+                report.model_used = _MODEL_NAME
                 db.commit()
                 final_text = report.final_recommendation or ""
-                logger.info("[%s] Report marked completed", self.report_id)
+                logger.info(
+                    "[%s] Report marked completed — tokens_in=%d (cached=%d), tokens_out=%d, cost=$%.4f",
+                    self.report_id, tokens_input, tokens_cached, tokens_output, cost_usd,
+                )
             return final_text
         finally:
             db.close()
@@ -444,17 +471,29 @@ class InvestmentWorkflowV2:
                 if sse:
                     yield sse
 
-                # Capture the final AI message for the report
-                if (
-                    event.get("event") == "on_chat_model_end"
-                    and event.get("data", {}).get("output")
-                ):
-                    output = event["data"]["output"]
-                    if hasattr(output, "content") and isinstance(output.content, str):
-                        final_output = output.content
+                # Capture the final AI message for the report + accumulate token usage
+                if event.get("event") == "on_chat_model_end":
+                    output = event.get("data", {}).get("output")
+                    if output is not None:
+                        if hasattr(output, "content") and isinstance(output.content, str):
+                            final_output = output.content
+                        # Accumulate token counts from all LLM calls (orchestrator + sub-agents).
+                        # usage_metadata fields (LangChain ≥ 0.3.9):
+                        #   input_tokens            — total input tokens (fresh + cached)
+                        #   output_tokens           — generated tokens
+                        #   input_token_details     — dict with optional 'cache_read' key
+                        usage = getattr(output, "usage_metadata", None)
+                        if usage:
+                            self._tokens_input += usage.get("input_tokens", 0)
+                            self._tokens_output += usage.get("output_tokens", 0)
+                            details = usage.get("input_token_details") or {}
+                            self._tokens_cached += details.get("cache_read", 0)
 
-            logger.info("[%s] astream_events finished — %d events received, final_output=%d chars",
-                        self.report_id, event_count, len(final_output))
+            logger.info(
+                "[%s] astream_events finished — %d events, final_output=%d chars, tokens_in=%d, tokens_out=%d",
+                self.report_id, event_count, len(final_output),
+                self._tokens_input, self._tokens_output,
+            )
 
             # Save final report text to DB
             if final_output:
@@ -471,11 +510,27 @@ class InvestmentWorkflowV2:
                 finally:
                     db.close()
 
-            self._mark_report_complete()
+            # Compute cost and persist.
+            # Fresh input = total input − cached (cached tokens billed at discount rate).
+            pricing = _MODEL_PRICING.get(_MODEL_NAME, _MODEL_PRICING["default"])
+            fresh_input = self._tokens_input - self._tokens_cached
+            cost_usd = (
+                fresh_input * pricing["input_per_1m"] / 1_000_000
+                + self._tokens_cached * pricing["cache_read_per_1m"] / 1_000_000
+                + self._tokens_output * pricing["output_per_1m"] / 1_000_000
+            )
+            self._mark_report_complete(
+                self._tokens_input, self._tokens_cached, self._tokens_output, cost_usd
+            )
             logger.info("[%s] Workflow complete — emitting workflow_complete event", self.report_id)
             yield self._make_sse("workflow_complete", {
                 "report_id": self.report_id,
                 "message": "Monthly analysis complete. Report saved.",
+                "tokens_input": self._tokens_input,
+                "tokens_cached": self._tokens_cached,
+                "tokens_output": self._tokens_output,
+                "cost_usd": round(cost_usd, 6),
+                "model": _MODEL_NAME,
             })
 
         except Exception as e:

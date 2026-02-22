@@ -231,5 +231,11 @@ class InvestmentReport(Base):
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress|completed|failed
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
+    # Token usage & cost tracking
+    tokens_input = Column(Integer, nullable=True)   # total input tokens (fresh + cached)
+    tokens_cached = Column(Integer, nullable=True)  # subset of tokens_input served from cache
+    tokens_output = Column(Integer, nullable=True)
+    cost_usd = Column(Numeric(10, 6), nullable=True)
+    model_used = Column(String(100), nullable=True)
 
     user = relationship("User")
