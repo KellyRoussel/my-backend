@@ -137,6 +137,12 @@ class InvestmentProfile(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
     currency_preference = Column(String(3), nullable=False, default="USD")
     risk_tolerance = Column(Enum(RiskTolerance), nullable=True)
+    investment_horizon = Column(String(50), nullable=True)
+    ethical_exclusions = Column(Text, nullable=True)  # JSON array stored as text
+    country = Column(String(3), nullable=True)         # ISO 3-letter country code (e.g. "FRA")
+    interests = Column(Text, nullable=True)            # JSON array of investment interest themes
+    last_macro_context = Column(Text, nullable=True)  # Carnet de bord — contexte macro du mois précédent
+    last_macro_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -162,6 +168,10 @@ class Investment(Base):
     dividend_yield = Column(Numeric(5, 4), nullable=True)
     expense_ratio = Column(Numeric(5, 4), nullable=True)
     notes = Column(Text, nullable=True)
+    investment_thesis = Column(Text, nullable=True)  # Thèse d'investissement rédigée
+    thesis_status = Column(String(20), nullable=True, default="valid")  # valid|watch|reconsider
+    alert_threshold_pct = Column(Numeric(5, 2), nullable=True)  # Seuil d'alerte ex: -20.0
+    account_type = Column(String(5), nullable=True)  # PEA ou CTO
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -188,3 +198,38 @@ class InvestmentTransaction(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     investment = relationship("Investment", back_populates="transactions")
+
+
+class InvestmentWatchlist(Base):
+    """Entreprises suivies mais pas encore achetées — carnet de bord."""
+    __tablename__ = "investment_watchlist"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    symbol = Column(String(20), nullable=True)
+    name = Column(String(255), nullable=False)
+    sector = Column(String(100), nullable=True)
+    country = Column(String(3), nullable=True)
+    reason = Column(Text, nullable=True)
+    source = Column(String(50), nullable=True, default="manual")  # manual|agent_suggestion
+    priority = Column(String(20), nullable=True, default="normal")  # high|normal|low
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class InvestmentReport(Base):
+    """Rapport produit par le workflow DeepAgents — peut être généré à tout moment."""
+    __tablename__ = "investment_reports"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    report_date = Column(Date, nullable=False)
+    final_recommendation = Column(Text, nullable=True)    # Rapport Markdown final
+    status = Column(String(20), nullable=False, default="in_progress")  # in_progress|completed|failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")

@@ -31,6 +31,10 @@ class InvestmentRepository:
         dividend_yield: Optional[Decimal] = None,
         expense_ratio: Optional[Decimal] = None,
         notes: Optional[str] = None,
+        investment_thesis: Optional[str] = None,
+        thesis_status: Optional[str] = None,
+        alert_threshold_pct: Optional[Decimal] = None,
+        account_type: Optional[str] = None,
     ) -> DBInvestment:
         investment = DBInvestment(
             user_id=user_id,
@@ -48,6 +52,10 @@ class InvestmentRepository:
             dividend_yield=dividend_yield,
             expense_ratio=expense_ratio,
             notes=notes,
+            investment_thesis=investment_thesis,
+            thesis_status=thesis_status,
+            alert_threshold_pct=alert_threshold_pct,
+            account_type=account_type,
         )
         self.db.add(investment)
         self.db.commit()
