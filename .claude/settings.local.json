@@ -9,7 +9,9 @@
       "Bash(netstat:*)",
       "Bash(docker-compose down:*)",
       "Bash(docker-compose up:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(source:*)",
+      "WebFetch(domain:docs.langchain.com)"
     ]
   }
 }

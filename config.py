@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     database_url: str = ""
     openfigi_api_key: str = ""
     openai_investment_key: str = ""
+    tavily_api_key: str = ""
     web_frontend_url: str = "http://localhost:5173"
 
 
