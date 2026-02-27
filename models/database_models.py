@@ -139,7 +139,7 @@ class InvestmentProfile(Base):
     risk_tolerance = Column(Enum(RiskTolerance), nullable=True)
     investment_horizon = Column(String(50), nullable=True)
     ethical_exclusions = Column(Text, nullable=True)  # JSON array stored as text
-    country = Column(String(3), nullable=True)         # ISO 3-letter country code (e.g. "FRA")
+    country = Column(String(100), nullable=True)        # Country name or ISO code (e.g. "France", "FRA")
     interests = Column(Text, nullable=True)            # JSON array of investment interest themes
     last_macro_context = Column(Text, nullable=True)  # Carnet de bord — contexte macro du mois précédent
     last_macro_updated_at = Column(DateTime, nullable=True)

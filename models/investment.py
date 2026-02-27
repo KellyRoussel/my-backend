@@ -40,7 +40,7 @@ class InvestmentProfileUpdate(BaseModel):
     risk_tolerance: Optional[str] = Field(None)
     investment_horizon: Optional[str] = Field(None, max_length=50)
     ethical_exclusions: Optional[str] = None
-    country: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 3-letter country code (e.g. FRA)")
+    country: Optional[str] = Field(None, max_length=100, description="Country name or ISO code (e.g. France, FRA)")
     interests: Optional[str] = None
 
 
