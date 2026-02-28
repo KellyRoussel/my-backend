@@ -27,6 +27,12 @@ from langchain_openai import ChatOpenAI
 
 from config import settings
 from database import SessionLocal
+
+try:
+    from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+    _LANGFUSE_AVAILABLE = True
+except ImportError:
+    _LANGFUSE_AVAILABLE = False
 from dependencies.investment.agent_prompts import (
     MAIN_ORCHESTRATOR_PROMPT,
     build_macro_scan_prompt,
@@ -480,11 +486,30 @@ class InvestmentWorkflowV2:
             final_output = ""
             event_count = 0
             workflow_start = time.monotonic()
+            callbacks: list = []
+            if settings.langfuse_tracing_enabled and _LANGFUSE_AVAILABLE:
+                # Langfuse v3: CallbackHandler reads credentials from env vars only.
+                # Pydantic settings doesn't put them in os.environ, so set them here.
+                os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+                os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
+                os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
+                _lf_handler = LangfuseCallbackHandler()
+                callbacks.append(_lf_handler)
+                logger.info("[%s] Langfuse tracing enabled (session=%s)", self.report_id, self.session_id)
+
             logger.info("[%s] Starting astream_events (recursion_limit=%d)", self.report_id, settings.agent_recursion_limit)
             async for event in agent.astream_events(
                 {"messages": [initial_message]},
                 version="v2",
-                config={"recursion_limit": settings.agent_recursion_limit}
+                config={
+                    "recursion_limit": settings.agent_recursion_limit,
+                    "callbacks": callbacks,
+                    "metadata": {
+                        "langfuse_user_id": self.user_id,
+                        "langfuse_session_id": self.session_id,
+                        "langfuse_trace_name": f"investment-workflow-{self.report_id[:8]}",
+                    },
+                },
             ):
                 event_count += 1
                 sse = self._event_to_sse(event)
@@ -535,6 +560,12 @@ class InvestmentWorkflowV2:
                             self._tokens_output += usage.get("output_tokens", 0)
                             details = usage.get("input_token_details") or {}
                             self._tokens_cached += details.get("cache_read", 0)
+
+            if callbacks:
+                try:
+                    callbacks[0].flush()
+                except Exception:
+                    pass
 
             logger.info(
                 "[%s] astream_events finished — %d events, final_output=%d chars, tokens_in=%d, tokens_out=%d",

@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     web_frontend_url: str = "http://localhost:5173"
     agent_recursion_limit: int = 30
     investment_model: str = "gpt-4.1-mini"
+    langfuse_tracing_enabled: bool = False
+    langfuse_secret_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
 
 
 settings = Settings()
