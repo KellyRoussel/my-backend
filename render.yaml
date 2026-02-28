@@ -2,8 +2,10 @@ services:
   - type: web
     name: my-fastapi-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: OPENAI_API_KEY
-        sync: false  # À définir manuellement sur Render
+        sync: false
+      - key: DATABASE_URL
+        sync: false  # postgresql://postgres:...@db.xxx.supabase.co:5432/postgres

@@ -346,11 +346,12 @@ class InvestmentWorkflowV2:
                     "step_name": _step_names[agent_name],
                 })
             elif name != "task":
-                # Base tool call (web_search, get_portfolio_positions, etc.)
-                # Skip the 'task' tool itself — it's an internal dispatch mechanism
+                # Base tool call (web_search, get_portfolio_positions, framework tools
+                # like write_todos, etc.).  Skip the 'task' tool itself — it's an
+                # internal DeepAgents dispatch mechanism and is already handled above.
                 first_input = next(iter(inputs.values()), None) if isinstance(inputs, dict) else None
-                logger.debug("[%s] Tool call: %s(%s)", self.report_id, name,
-                             str(first_input)[:80] if first_input else "")
+                logger.info("[%s] Tool call: %s(%s)", self.report_id, name,
+                            str(first_input)[:120] if first_input else "")
                 return self._make_sse("tool_call", {
                     "tool": name,
                     "inputs": {k: str(v)[:100] for k, v in inputs.items()} if isinstance(inputs, dict) else {},

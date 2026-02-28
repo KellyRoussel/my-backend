@@ -12,10 +12,13 @@ pre-fetched via prefetch_agent_context() before agents start, then injected into
 their system prompts — this avoids redundant tool calls at runtime.
 """
 import json
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 import yfinance as yf
 from langchain_core.tools import tool
@@ -226,6 +229,7 @@ def build_tools(
         Args:
             symbol: Ticker symbol (e.g. "ASML", "MSFT", "IWDA.AS")
         """
+        logger.info("[%s] [tool] get_stock_fundamentals: %s", report_id, symbol)
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info or {}
@@ -275,6 +279,7 @@ def build_tools(
 
         Returns a JSON array of up to 5 results with title, url, and content snippet.
         """
+        logger.info("[%s] [tool] web_search: %s", report_id, query[:120])
         try:
             response = tavily.search(query=query, max_results=5)
             results = [
@@ -311,6 +316,7 @@ def build_tools(
 
         Returns "ok" on success.
         """
+        logger.info("[%s] [tool] update_thesis_status: investment=%s → %s", report_id, investment_id, thesis_status)
         if thesis_status not in ("valid", "watch", "reconsider"):
             return f"Error: thesis_status must be one of valid/watch/reconsider, got '{thesis_status}'"
         db = db_session_factory()
@@ -342,6 +348,7 @@ def build_tools(
 
         Returns "ok" on success.
         """
+        logger.info("[%s] [tool] save_macro_context: %d chars", report_id, len(macro_context))
         db = db_session_factory()
         try:
             profile = (
@@ -386,6 +393,7 @@ def build_tools(
 
         Returns JSON with the created item's id and name.
         """
+        logger.info("[%s] [tool] add_to_watchlist: %s (%s)", report_id, name, symbol or "no ticker")
         db = db_session_factory()
         try:
             item = InvestmentWatchlist(
@@ -420,6 +428,7 @@ def build_tools(
 
         Returns "ok" on success.
         """
+        logger.info("[%s] [tool] save_final_report: %d chars", report_id, len(markdown_report))
         db = db_session_factory()
         try:
             report = (
@@ -460,6 +469,7 @@ def build_tools(
 
         Returns "ok" on success, error description on failure.
         """
+        logger.info("[%s] [tool] save_investment_suggestions: %d chars", report_id, len(suggestions_json))
         try:
             suggestions = json.loads(suggestions_json)
             if not isinstance(suggestions, list):
