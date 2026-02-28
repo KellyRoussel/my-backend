@@ -14,7 +14,7 @@ from dependencies.investment.yahoo_finance import YahooFinanceClient
 from dependencies.investment.currency_converter import CurrencyConverter
 from dependencies.investment.portfolio_calculator import PortfolioCalculator
 from dependencies.investment.ai_agents import launch_agents_stream
-from dependencies.investment.ai_agents_v2 import InvestmentWorkflowV2
+from dependencies.investment.ai_agents_v2 import InvestmentWorkflowV2, ALLOWED_MODELS
 from domain.entities.investment import Investment as DomainInvestment, Vehicle
 from domain.value_objects import Money
 from models.database_models import (
@@ -38,6 +38,7 @@ from models.investment import (
     WatchlistItemCreate,
     WatchlistItemResponse,
 )
+from config import settings
 from repositories import InvestmentRepository
 
 
@@ -475,10 +476,17 @@ def update_investment_profile(
 
 # --- Recommendations v2 (DeepAgents) ---
 
+@investment_router.get("/models")
+async def get_available_models():
+    """Return the list of models available for investment recommendations."""
+    return {"models": ALLOWED_MODELS, "default": settings.investment_model}
+
+
 @investment_router.get("/recommendations/generate/v2")
 async def generate_recommendation_v2(
     request: Request,
     budget_eur: float = Query(..., description="Budget available for investment (EUR)", gt=0),
+    model: str = Query(default=None, description=f"Model to use. Allowed: {ALLOWED_MODELS}"),
 ) -> StreamingResponse:
     """V2: DeepAgents monthly investment workflow with SSE streaming.
 
@@ -488,6 +496,9 @@ async def generate_recommendation_v2(
     The `budget_eur` parameter is required: the agent will not recommend
     any asset whose unit price exceeds this value.
 
+    The optional `model` parameter lets the caller choose the LLM. If omitted,
+    the server default (INVESTMENT_MODEL env var) is used.
+
     Event types:
     - workflow_start: workflow begins
     - step_start / step_complete: sub-agent step lifecycle
@@ -496,8 +507,13 @@ async def generate_recommendation_v2(
     - workflow_complete: report saved, report_id included
     - error: unrecoverable error
     """
+    if model is not None and model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid model '{model}'. Allowed values: {ALLOWED_MODELS}",
+        )
     user_id = _get_user_id(request)
-    workflow = InvestmentWorkflowV2(user_id=user_id, budget_eur=budget_eur)
+    workflow = InvestmentWorkflowV2(user_id=user_id, budget_eur=budget_eur, model=model)
 
     async def event_generator():
         async for sse_line in workflow.stream():

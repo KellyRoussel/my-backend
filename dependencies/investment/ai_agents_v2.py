@@ -46,6 +46,9 @@ from models.database_models import InvestmentReport
 # Kept as a module-level shorthand so the pricing lookup can reference it.
 _MODEL_NAME = settings.investment_model
 
+# Predefined list of models the mobile app can choose from.
+ALLOWED_MODELS: list[str] = ["gpt-4.1-mini", "gpt-4.1", "gpt-5.1", "gpt-5-mini"]
+
 # Pricing per 1M tokens (USD). Update when OpenAI changes rates.
 # cache_read_per_1m: price for tokens served from the prompt cache (subset of input_tokens).
 # Fresh input cost = (input_tokens - cached_tokens) * input_per_1m / 1e6
@@ -97,9 +100,10 @@ class InvestmentWorkflowV2:
 
     WORKSPACE_BASE = "static/agent_workspace"
 
-    def __init__(self, user_id: str, budget_eur: float):
+    def __init__(self, user_id: str, budget_eur: float, model: str | None = None):
         self.user_id = user_id
         self.budget_eur = budget_eur
+        self._model_name = model or _MODEL_NAME
         self.session_id = str(uuid4())
         self.report_id = str(uuid4())
         self.workspace_dir = f"{self.WORKSPACE_BASE}/{self.session_id}"
@@ -159,7 +163,7 @@ class InvestmentWorkflowV2:
                 report.tokens_cached = tokens_cached
                 report.tokens_output = tokens_output
                 report.cost_usd = round(cost_usd, 6)
-                report.model_used = _MODEL_NAME
+                report.model_used = self._model_name
                 db.commit()
                 final_text = report.final_recommendation or ""
                 logger.info(
@@ -214,7 +218,7 @@ class InvestmentWorkflowV2:
         watchlist_json = json.dumps(context["watchlist"], ensure_ascii=False, indent=2)
 
         model = ChatOpenAI(
-            model=_MODEL_NAME,
+            model=self._model_name,
             api_key=settings.openai_investment_key,
         )
 
@@ -590,7 +594,7 @@ class InvestmentWorkflowV2:
 
             # Compute cost and persist.
             # Fresh input = total input − cached (cached tokens billed at discount rate).
-            pricing = _MODEL_PRICING.get(_MODEL_NAME, _MODEL_PRICING["default"])
+            pricing = _MODEL_PRICING.get(self._model_name, _MODEL_PRICING["default"])
             fresh_input = self._tokens_input - self._tokens_cached
             cost_usd = (
                 fresh_input * pricing["input_per_1m"] / 1_000_000
@@ -608,7 +612,7 @@ class InvestmentWorkflowV2:
                 "tokens_cached": self._tokens_cached,
                 "tokens_output": self._tokens_output,
                 "cost_usd": round(cost_usd, 6),
-                "model": _MODEL_NAME,
+                "model": self._model_name,
             })
 
         except Exception as e:
