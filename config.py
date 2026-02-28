@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     openai_investment_key: str = ""
     tavily_api_key: str = ""
     web_frontend_url: str = "http://localhost:5173"
+    agent_recursion_limit: int = 30
 
 
 settings = Settings()

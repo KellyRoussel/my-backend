@@ -465,7 +465,7 @@ class InvestmentWorkflowV2:
             async for event in agent.astream_events(
                 {"messages": [initial_message]},
                 version="v2",
-                config={"recursion_limit": 30}
+                config={"recursion_limit": settings.agent_recursion_limit}
             ):
                 event_count += 1
                 sse = self._event_to_sse(event)
