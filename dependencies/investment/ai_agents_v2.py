@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import shutil
+import time
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 from uuid import uuid4
@@ -35,9 +36,9 @@ from dependencies.investment.agent_prompts import (
 from dependencies.investment.agent_tools import build_tools, filter_tools, prefetch_agent_context
 from models.database_models import InvestmentReport
 
-# Model used for all agents — initialized lazily in InvestmentWorkflowV2
-# to keep the API key reference in one place (settings.openai_investment_key)
-_MODEL_NAME = "gpt-5-mini" #"gpt-4.1-2025-04-14"
+# Model name resolved from settings (env var: INVESTMENT_MODEL).
+# Kept as a module-level shorthand so the pricing lookup can reference it.
+_MODEL_NAME = settings.investment_model
 
 # Pricing per 1M tokens (USD). Update when OpenAI changes rates.
 # cache_read_per_1m: price for tokens served from the prompt cache (subset of input_tokens).
@@ -100,6 +101,9 @@ class InvestmentWorkflowV2:
         self._tokens_input: int = 0   # total input tokens (fresh + cached)
         self._tokens_cached: int = 0  # subset served from prompt cache
         self._tokens_output: int = 0
+        # Step timing / progress tracking
+        self._step4_started: bool = False
+        self._step_start_times: dict[str, float] = {}  # step_name → monotonic time
 
     # ------------------------------------------------------------------
     # Setup / teardown
@@ -319,6 +323,12 @@ class InvestmentWorkflowV2:
             "opportunity_research_agent": 3,
         }
 
+        if kind == "on_chat_model_start":
+            model = event.get("metadata", {}).get("ls_model_name") or name
+            run_id = str(event.get("run_id", ""))[:8]
+            logger.info("[%s] LLM call started: model=%s run_id=%s", self.report_id, model, run_id)
+            return None
+
         if kind == "on_chat_model_stream":
             chunk = event.get("data", {}).get("chunk")
             if chunk and hasattr(chunk, "content"):
@@ -340,18 +350,21 @@ class InvestmentWorkflowV2:
             agent_name = inputs.get("subagent_type", name) if name == "task" else name
 
             if agent_name in _step_names:
+                self._step_start_times[agent_name] = time.monotonic()
                 logger.info("[%s] Step start: %s", self.report_id, _step_names[agent_name])
                 return self._make_sse("step_start", {
                     "step": _step_numbers[agent_name],
                     "step_name": _step_names[agent_name],
                 })
             elif name != "task":
-                # Base tool call (web_search, get_portfolio_positions, framework tools
-                # like write_todos, etc.).  Skip the 'task' tool itself — it's an
-                # internal DeepAgents dispatch mechanism and is already handled above.
+                # Base tool call (web_search, save_final_report, etc.).
+                # Skip the 'task' tool itself — handled above.
                 first_input = next(iter(inputs.values()), None) if isinstance(inputs, dict) else None
-                logger.info("[%s] Tool call: %s(%s)", self.report_id, name,
-                            str(first_input)[:120] if first_input else "")
+                if name in ("save_final_report", "save_investment_suggestions"):
+                    logger.info("[%s] [step4] Tool call: %s", self.report_id, name)
+                else:
+                    logger.info("[%s] Tool call: %s(%s)", self.report_id, name,
+                                str(first_input)[:120] if first_input else "")
                 return self._make_sse("tool_call", {
                     "tool": name,
                     "inputs": {k: str(v)[:100] for k, v in inputs.items()} if isinstance(inputs, dict) else {},
@@ -363,7 +376,8 @@ class InvestmentWorkflowV2:
             agent_name = inputs.get("subagent_type", name) if name == "task" else name
 
             if agent_name in _step_numbers:
-                logger.info("[%s] Step complete: %s", self.report_id, _step_names[agent_name])
+                elapsed = time.monotonic() - self._step_start_times.get(agent_name, time.monotonic())
+                logger.info("[%s] Step complete: %s (elapsed=%.1fs)", self.report_id, _step_names[agent_name], elapsed)
                 result_text = self._extract_task_result(event.get("data", {}).get("output"))
                 payload: dict = {
                     "step": _step_numbers[agent_name],
@@ -381,9 +395,13 @@ class InvestmentWorkflowV2:
 
             elif name == "save_investment_suggestions":
                 suggestions_json_str = inputs.get("suggestions_json", "[]")
+                elapsed4 = time.monotonic() - self._step_start_times.get("step4", time.monotonic())
                 try:
                     suggestions = json.loads(suggestions_json_str)
-                    logger.info("[%s] Investment suggestions ready: %d items", self.report_id, len(suggestions))
+                    logger.info(
+                        "[%s] [step4] Investment suggestions ready: %d items (step4 elapsed=%.1fs)",
+                        self.report_id, len(suggestions), elapsed4,
+                    )
                     return self._make_sse("investment_suggestions", {"suggestions": suggestions})
                 except (json.JSONDecodeError, Exception) as e:
                     logger.warning("[%s] Failed to parse investment suggestions: %s", self.report_id, e)
@@ -461,7 +479,8 @@ class InvestmentWorkflowV2:
 
             final_output = ""
             event_count = 0
-            print(f"Starting agent astream_events for report {self.report_id} with initial message: {initial_message.content}")
+            workflow_start = time.monotonic()
+            logger.info("[%s] Starting astream_events (recursion_limit=%d)", self.report_id, settings.agent_recursion_limit)
             async for event in agent.astream_events(
                 {"messages": [initial_message]},
                 version="v2",
@@ -471,6 +490,33 @@ class InvestmentWorkflowV2:
                 sse = self._event_to_sse(event)
                 if sse:
                     yield sse
+
+                # Detect step 3 completion → emit step 4 start
+                if not self._step4_started:
+                    ev_kind = event.get("event", "")
+                    ev_name = event.get("name", "")
+                    if ev_kind == "on_tool_end" and ev_name == "task":
+                        inputs = event.get("data", {}).get("input", {})
+                        if inputs.get("subagent_type") == "opportunity_research_agent":
+                            self._step4_started = True
+                            self._step_start_times["step4"] = time.monotonic()
+                            elapsed = self._step_start_times["step4"] - workflow_start
+                            logger.info(
+                                "[%s] Step 4 starting — Decision & Thesis Documentation (workflow elapsed=%.1fs)",
+                                self.report_id, elapsed,
+                            )
+                            yield self._make_sse("step_start", {
+                                "step": 4,
+                                "step_name": "Step 4 — Decision & Thesis",
+                            })
+
+                # Periodic heartbeat: log every 100 events so we know the loop is alive
+                if event_count % 100 == 0:
+                    elapsed = time.monotonic() - workflow_start
+                    logger.info(
+                        "[%s] Workflow heartbeat — %d events, elapsed=%.1fs",
+                        self.report_id, event_count, elapsed,
+                    )
 
                 # Capture the final AI message for the report + accumulate token usage
                 if event.get("event") == "on_chat_model_end":

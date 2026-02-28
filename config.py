@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     web_frontend_url: str = "http://localhost:5173"
     agent_recursion_limit: int = 30
+    investment_model: str = "gpt-4.1-mini"
 
 
 settings = Settings()
