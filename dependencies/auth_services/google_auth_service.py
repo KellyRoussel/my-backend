@@ -81,6 +81,7 @@ class GoogleAuthService(BaseAuthService):
             token_response_data = token_response.json()
 
             if "error" in token_response_data:
+                print(f"🔴 Google token exchange error: {token_response_data}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Google authentication error: {token_response_data['error']}"
