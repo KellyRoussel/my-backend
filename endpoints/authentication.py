@@ -314,14 +314,12 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
 
 @authentication_router.post("/auth/validate-token")
 async def validate_token(request: Request, db: Session = Depends(get_db)):
-    print("🤍 Validating token")
     token = request.headers.get("Authorization")
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
 
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        print("🤍 Validating token => payload", payload)
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")

@@ -168,8 +168,13 @@ class InstaAuthService(BaseAuthService):
 
     async def refresh_token(self, access_token: str) -> str:
         async with httpx.AsyncClient() as client:
-            url = f"{settings.insta_refresh_token_url}?grant_type=ig_refresh_token&access_token={access_token}&client_secret={settings.insta_client_secret}"
-            refresh_token_response = await client.get(url)
+            url = settings.insta_refresh_token_url
+            params = {
+                "grant_type": "ig_refresh_token",
+                "access_token": access_token,
+                "client_secret": settings.insta_client_secret,
+            }
+            refresh_token_response = await client.get(url, params=params)
             refreshed_token = refresh_token_response.json()
 
             if "error" in refreshed_token:
@@ -219,8 +224,13 @@ class InstaAuthService(BaseAuthService):
     async def _get_long_lived_token(self, access_token: str) -> str:
         """Private method to get long-lived token"""
         async with httpx.AsyncClient() as client:
-            url = f"{settings.insta_long_lived_token_url}?grant_type=ig_exchange_token&access_token={access_token}&client_secret={settings.insta_client_secret}"
-            long_lived_token_response = await client.get(url)
+            url = settings.insta_long_lived_token_url
+            params = {
+                "grant_type": "ig_exchange_token",
+                "access_token": access_token,
+                "client_secret": settings.insta_client_secret,
+            }
+            long_lived_token_response = await client.get(url, params=params)
             long_lived_token = long_lived_token_response.json()
 
             if "error" in long_lived_token:
