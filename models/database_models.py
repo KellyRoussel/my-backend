@@ -239,3 +239,13 @@ class InvestmentReport(Base):
     model_used = Column(String(100), nullable=True)
 
     user = relationship("User")
+
+
+class PortfolioSession(Base):
+    """Anonymous visitor session for portfolio chatbot rate limiting."""
+    __tablename__ = "portfolio_sessions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    message_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_message_at = Column(DateTime, default=datetime.utcnow)
