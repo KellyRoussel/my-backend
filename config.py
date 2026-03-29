@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     web_frontend_url: str = "http://localhost:5173"
     gemini_api_key: str = ""
     portfolio_frontend_url: str = "http://localhost:3000"
+    portfolio_api_key: str = ""
     agent_recursion_limit: int = 30
     investment_model: str = "gpt-4.1-mini"
     langfuse_tracing_enabled: bool = False
