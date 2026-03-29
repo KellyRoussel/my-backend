@@ -8,10 +8,11 @@ import json
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from config import settings
 from database import SessionLocal
 from dependencies.portfolio.portfolio_agent import PortfolioAgent
 from models.database_models import PortfolioSession
@@ -35,8 +36,13 @@ def ping():
     return {"status": "awake"}
 
 
+def _verify_portfolio_key(x_portfolio_key: str = Header(default="")):
+    if not settings.portfolio_api_key or x_portfolio_key != settings.portfolio_api_key:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @portfolio_router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, _: None = Depends(_verify_portfolio_key)):
     """Portfolio chatbot — returns an SSE stream of token events.
 
     Rate limiting: each anonymous session gets _MESSAGE_LIMIT free messages.
