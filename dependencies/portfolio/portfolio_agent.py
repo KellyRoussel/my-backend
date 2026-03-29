@@ -72,6 +72,10 @@ _GITMCP_SERVERS: dict[str, dict] = {
         "url": "https://gitmcp.io/KellyRoussel/my-backend",
         "transport": "streamable_http",
     },
+    "my_simon": {
+        "url": "https://gitmcp.io/KellyRoussel/my_simon",
+        "transport": "streamable_http",
+    },
 }
 
 
