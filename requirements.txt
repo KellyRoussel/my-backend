@@ -16,3 +16,7 @@ tavily-python==0.7.21
 langchain-openai==1.1.10
 langchain-core==1.2.14
 langfuse>=3.0.0
+feedparser==6.0.12
+beautifulsoup4==4.13.4
+langchain-mcp-adapters==0.2.2
+langchain-google-genai>=2.0.0

@@ -1,0 +1,91 @@
+Kelly ROUSSEL
+Generative AI Engineer
+
+Located in LYON, open to remote opportunities
+Driver's license (Permis B)
+
+LinkedIn: https://www.linkedin.com/in/kelly-roussel-975151152/
+GitHub: https://github.com/KellyRoussel
+
+PROFILE
+Believing in the transformative potential of GenAI, I've reached a point where I need my work to mean something beyond the code. I'm looking for a small, hands-on team pioneering real applications of this technology — where the impact is tangible and the mission is worth fighting for.
+
+
+PROFESSIONAL EXPERIENCE
+
+September 2024 - Now | Agicap, LYON (69)
+Generative AI Engineer
+- Sole Generative AI Engineer within the Lab team, working autonomously from ideation to POC, then collaborating hands-on with product squads (PM, engineers) for integration or as AI consultant on smaller features
+- Designed and built Smart Report, an AI agent generating dynamic charts and tables from natural language, with automated data retrieval and Python code generation to keep reports continuously up to date — validated with ~20 clients in beta
+- Prototyped AI solutions for cash-flow forecasting, payment anomaly detection, and structured data extraction
+- Led client betas end-to-end: feedback collection, value validation, and iterative improvements
+- Developed an AI-powered Chrome extension to automate data imports from external ERPs and banking platforms, increasing product coverage
+
+March 2020 - August 2024 | Hoomano, LYON (69)
+Lead Dev & Artificial Intelligence Engineer
+- Led a team of 2 engineers + 1-2 freelancers on AI agent projects from inception to deployment
+- Pioneered AI agent projects across diverse domains. Among those:
+  - MIRA for LG: Augmented Reality Digital Assistant prototype for professional training
+  - Agency reception assistant prototype for ITCE
+  - Mojodex: open-source AI agent platform and mobile app (Professional Digital Assistant) — 40 GitHub stars, 2 paying enterprise clients (IP law firm, medical event assistance)
+- Developed Flutter mobile applications for Android and iOS
+- Conducted time-series data analysis including facemesh-based emotion recognition
+- Authored technical articles for the company blog
+
+May - August 2019 | Collective and Artificial Intelligence Laboratory, MARSEILLE (13)
+Engineer Assistant Intern
+- Developed a tool for the automatic classification of thought patterns from textual transcriptions of discussions
+
+
+ACADEMIC CAREER
+
+2017 - 2020 | Mines Alès Engineering School, ALES (30)
+Computer Science and Artificial Intelligence Department
+Specialization: Artificial Intelligence and Data Science
+Valedictorian (Major de promotion)
+
+2015 - 2017 | MPSI / MP*, Carnot High School, DIJON (21)
+Classe Préparatoire aux Grandes Écoles (CPGE) — Mathematics and Physics
+
+
+TECHNICAL SKILLS
+
+Programming & AI:
+- Python
+- LLMs integration & Prompting
+- Agentic workflows & frameworks (Langchain, Claude Agents SDK, OpenAI Agents)
+- Anthropic Agent Framework (Skills, Plugins, Hooks, Tools, etc.)
+- MCP (Model Context Protocol)
+- RAG & Vector Databases (PGVector, Chroma)
+- LLM Evaluation (DeepEval) & Observability (Langfuse)
+- OpenAI model fine-tuning
+- FastAPI
+- PostgreSQL
+- Docker
+- GCP (Cloud Run, Cloud Build, Cloud Scheduler, Jobs, Storage, Cloud SQL)
+- Azure (App Service, PostgreSQL)
+- Terraform
+- Flutter (Android & iOS mobile development)
+
+
+LANGUAGES
+
+- French: Native
+- English: C1 (professional proficiency)
+- Spanish: A1
+
+ASSOCIATIVE COMMITMENT
+
+2022 - 2024 | Volunteer at "Mouvement de Palier"
+Promoting the creation of links on a very local scale (neighborhood, building...) around ecological themes.
+
+2018 - 2019 | Vice-president, "Ingénieurs Sans Frontières"
+Committed to sustainable development and the training of citizen engineers.
+
+
+INTERESTS
+- Biking
+- Fitness
+- Reading
+- Board Games
+- Cooking, sourdough bread baking
