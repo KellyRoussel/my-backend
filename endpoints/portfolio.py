@@ -65,7 +65,21 @@ async def chat(request: ChatRequest):
         # Rate limit check
         if session.message_count >= _MESSAGE_LIMIT:
             db.close()
-            return {"detail": "rate_limited", "session_id": session_id}
+
+            async def _rate_limited():
+                yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'type': 'rate_limited'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            return StreamingResponse(
+                _rate_limited(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
 
         # Increment message count and persist before streaming
         session.message_count += 1

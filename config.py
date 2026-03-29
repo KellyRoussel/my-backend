@@ -27,10 +27,7 @@ class Settings(BaseSettings):
     openai_investment_key: str = ""
     tavily_api_key: str = ""
     web_frontend_url: str = "http://localhost:5173"
-    openai_portfolio_key: str = ""
-    groq_api_key: str = ""
     gemini_api_key: str = ""
-    mistral_api_key: str = ""
     portfolio_frontend_url: str = "http://localhost:3000"
     agent_recursion_limit: int = 30
     investment_model: str = "gpt-4.1-mini"

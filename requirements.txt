@@ -19,6 +19,4 @@ langfuse>=3.0.0
 feedparser==6.0.12
 beautifulsoup4==4.13.4
 langchain-mcp-adapters==0.2.2
-langchain-groq>=0.3.0
 langchain-google-genai>=2.0.0
-langchain-mistralai>=0.2.0
