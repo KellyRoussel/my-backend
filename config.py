@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_public_key: str = ""
     langfuse_base_url: str = "https://cloud.langfuse.com"
+    firebase_credentials_json: str = ""  # Service account JSON for FCM push notifications
+    cron_secret: str = ""  # Shared secret to authenticate cron-triggered endpoints
 
 
 settings = Settings()
