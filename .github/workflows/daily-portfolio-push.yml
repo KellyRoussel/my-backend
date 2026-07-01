@@ -1,11 +1,11 @@
 name: Daily portfolio push
 
 # Sends the daily cumulative gain/loss push notification.
-# Scheduled at 06:00 UTC (~08:00 Paris in summer / 07:00 in winter).
+# Scheduled at 12:00 UTC (~14:00 Paris in summer / 13:00 in winter).
 # GitHub's scheduled runs can be delayed a few minutes under load — acceptable here.
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 12 * * *"
   workflow_dispatch: {}
 
 jobs:
