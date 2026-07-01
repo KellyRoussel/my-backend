@@ -21,6 +21,7 @@ from endpoints.insta_poster import insta_poster_router
 from endpoints.utils import utils_router
 from endpoints.investment import investment_router
 from endpoints.portfolio import portfolio_router
+from endpoints.notifications import notifications_router, cron_router
 from dependencies.portfolio.portfolio_agent import get_or_build_portfolio_agent
 
 
@@ -57,6 +58,8 @@ app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 app.include_router(utils_router, dependencies=[Depends(auth_handler)])
 app.include_router(investment_router, dependencies=[Depends(auth_handler)])
 app.include_router(portfolio_router)
+app.include_router(notifications_router, dependencies=[Depends(auth_handler)])
+app.include_router(cron_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/health")
 def health():

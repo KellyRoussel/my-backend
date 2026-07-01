@@ -65,6 +65,21 @@ class User(Base):
     my_backend_tokens = relationship("MyBackendToken", back_populates="user")
 
 
+class DeviceToken(Base):
+    """Push notification device token (FCM) registered by the mobile app."""
+    __tablename__ = "device_tokens"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    push_token = Column(String, nullable=False, unique=True)
+    device_type = Column(String(10), nullable=False, default="android")  # android|ios|web
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
+
 class InstagramToken(Base):
     __tablename__ = "instagram_tokens"
 
