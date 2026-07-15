@@ -1,15 +1,59 @@
 """Client for Yahoo Finance via yfinance."""
+import logging
+import time
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional, TypeVar
 
 import yfinance as yf
+from curl_cffi import requests as _cffi_requests
+from yfinance.exceptions import YFRateLimitError
 
 from models.database_models import AssetType, MarketCapCategory
 from models.investment import DataQuality, PriceHistoryPoint
 
+logger = logging.getLogger(__name__)
+
+# A single browser-impersonating session shared by every Ticker. Yahoo aggressively
+# 429s "unbranded" clients coming from datacenter IPs (e.g. Render on a cold start),
+# so impersonating Chrome dramatically cuts down on YFRateLimitError.
+_SESSION = _cffi_requests.Session(impersonate="chrome")
+
+_MAX_RETRIES = 4
+_BASE_DELAY_SECONDS = 2.0
+
+_T = TypeVar("_T")
+
 
 class YahooFinanceClient:
     """Client for Yahoo Finance via yfinance."""
+
+    @staticmethod
+    def _ticker(ticker_symbol: str) -> yf.Ticker:
+        return yf.Ticker(ticker_symbol, session=_SESSION)
+
+    @staticmethod
+    def _with_retry(fn: Callable[[], _T], *, what: str) -> _T:
+        """Run ``fn``, retrying with exponential backoff on Yahoo rate limits.
+
+        A cold Render instance has no cached Yahoo cookie/crumb, so the first
+        burst of requests can be rate limited; a couple of backed-off retries is
+        usually enough for the crumb to be established and the call to succeed.
+        """
+        delay = _BASE_DELAY_SECONDS
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                return fn()
+            except YFRateLimitError:
+                if attempt == _MAX_RETRIES:
+                    logger.warning("Yahoo rate limited on %s, giving up after %d attempts", what, attempt)
+                    raise
+                logger.warning(
+                    "Yahoo rate limited on %s (attempt %d/%d), retrying in %.1fs",
+                    what, attempt, _MAX_RETRIES, delay,
+                )
+                time.sleep(delay)
+                delay *= 2
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @staticmethod
     def _map_asset_type(quote_type: Optional[str]) -> AssetType:
@@ -79,20 +123,27 @@ class YahooFinanceClient:
         if price is not None:
             return float(price)
 
-        data = ticker.history(period="1d")
+        data = YahooFinanceClient._with_retry(
+            lambda: ticker.history(period="1d"), what="current price (1d)"
+        )
         if not data.empty:
             return float(data["Close"].iloc[-1])
-        data = ticker.history(period="5d")
+        data = YahooFinanceClient._with_retry(
+            lambda: ticker.history(period="5d"), what="current price (5d)"
+        )
         if not data.empty:
             return float(data["Close"].iloc[-1])
         return None
 
     @staticmethod
     def get_purchase_price(ticker_symbol: str, purchase_date: date) -> Optional[float]:
-        ticker = yf.Ticker(ticker_symbol)
+        ticker = YahooFinanceClient._ticker(ticker_symbol)
         start = datetime.combine(purchase_date - timedelta(days=7), datetime.min.time())
         end = datetime.combine(purchase_date + timedelta(days=1), datetime.min.time())
-        data = ticker.history(start=start, end=end)
+        data = YahooFinanceClient._with_retry(
+            lambda: ticker.history(start=start, end=end),
+            what=f"purchase price {ticker_symbol}",
+        )
         if data.empty:
             return None
         if getattr(data.index, "tz", None) is not None:
@@ -106,16 +157,21 @@ class YahooFinanceClient:
 
     @staticmethod
     def get_latest_close(ticker_symbol: str) -> Optional[float]:
-        ticker = yf.Ticker(ticker_symbol)
-        data = ticker.history(period="5d")
+        ticker = YahooFinanceClient._ticker(ticker_symbol)
+        data = YahooFinanceClient._with_retry(
+            lambda: ticker.history(period="5d"),
+            what=f"latest close {ticker_symbol}",
+        )
         if data.empty:
             return None
         return float(data["Close"].iloc[-1])
 
     @staticmethod
     def get_investment_profile(ticker_symbol: str) -> dict:
-        ticker = yf.Ticker(ticker_symbol)
-        info = ticker.info or {}
+        ticker = YahooFinanceClient._ticker(ticker_symbol)
+        info = YahooFinanceClient._with_retry(
+            lambda: ticker.info, what=f"info {ticker_symbol}"
+        ) or {}
 
         return {
             "symbol": (info.get("symbol") or ticker_symbol).upper(),
@@ -131,11 +187,14 @@ class YahooFinanceClient:
 
     @staticmethod
     def get_price_history(ticker_symbol: str, start_date: date, end_date: date) -> list[PriceHistoryPoint]:
-        ticker = yf.Ticker(ticker_symbol)
+        ticker = YahooFinanceClient._ticker(ticker_symbol)
         fetch_start_date = start_date - timedelta(days=7)
         start = datetime.combine(fetch_start_date, datetime.min.time())
         end = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
-        data = ticker.history(start=start, end=end)
+        data = YahooFinanceClient._with_retry(
+            lambda: ticker.history(start=start, end=end),
+            what=f"price history {ticker_symbol}",
+        )
         if data.empty:
             return []
         if getattr(data.index, "tz", None) is not None:
