@@ -22,6 +22,7 @@ from endpoints.utils import utils_router
 from endpoints.investment import investment_router
 from endpoints.portfolio import portfolio_router
 from endpoints.notifications import notifications_router, cron_router
+from endpoints.quiz import quiz_router
 from dependencies.portfolio.portfolio_agent import get_or_build_portfolio_agent
 
 
@@ -60,6 +61,7 @@ app.include_router(investment_router, dependencies=[Depends(auth_handler)])
 app.include_router(portfolio_router)
 app.include_router(notifications_router, dependencies=[Depends(auth_handler)])
 app.include_router(cron_router)
+app.include_router(quiz_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/health")
 def health():

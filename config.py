@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     langfuse_base_url: str = "https://cloud.langfuse.com"
     firebase_credentials_json: str = ""  # Service account JSON for FCM push notifications
     cron_secret: str = ""  # Shared secret to authenticate cron-triggered endpoints
+    elevenlabs_api_key: str = ""  # Quiz Host: server-side only, used to mint conversation tokens
+    elevenlabs_agent_id: str = ""  # Quiz Host: ElevenLabs Agents agent id
+    quiz_public_base_url: str = ""  # Quiz Host: public URL encoded in the join QR code (e.g. a tunnel URL)
 
 
 settings = Settings()

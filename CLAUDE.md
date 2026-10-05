@@ -23,7 +23,9 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 
 Deployment is on Render.com (`render.yaml`). Build: `pip install -r requirements.txt`, Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
 
-No test suite or linter is currently configured.
+Tests (Quiz Host only): `pip install -r requirements-dev.txt && python -m pytest tests/quiz`. No linter is configured.
+
+Run the Quiz Host alone (no database needed): `uvicorn quiz_host.app:app --reload`.
 
 ## Architecture
 
@@ -41,6 +43,7 @@ No test suite or linter is currently configured.
 - `insta_poster_router` — AI content generation via OpenAI + Instagram Graph API posting
 - `bobobidou_router` — Image-to-ingredients extraction via OpenAI vision
 - `utils_router` — Audio transcription via OpenAI Whisper
+- `quiz_router` — Quiz Host: public pages, REST and WebSockets for a buzzer quiz driven by an ElevenLabs voice agent. Game state lives in memory in `dependencies/quiz/` (single worker); docs in `quiz_host/`
 
 **Auth flow**: OAuth state stored in `AuthState` DB table for CSRF protection. After OAuth callback, JWT access (60min) and refresh (30day) tokens are issued and stored in DB. Token validation happens via `auth_handler.py` dependency.
 

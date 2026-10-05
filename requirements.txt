@@ -21,3 +21,6 @@ beautifulsoup4==4.13.4
 langchain-mcp-adapters==0.2.2
 langchain-google-genai>=2.0.0
 firebase-admin>=6.5.0
+segno==1.6.6
+websockets==17.2  # WebSocket support for uvicorn (Quiz Host)
+

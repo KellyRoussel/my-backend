@@ -9,3 +9,7 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false  # postgresql://postgres:...@db.xxx.supabase.co:5432/postgres
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_ID
+        sync: false

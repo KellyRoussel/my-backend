@@ -9,6 +9,7 @@ A shared FastAPI backend powering multiple personal apps. Each feature module se
 | **Bobobidou** | `/bobobidou` | Extracts ingredients from food photos using OpenAI vision |
 | **Insta Poster** | `/insta_poster` | Generates Instagram captions from voice transcripts and posts to Instagram |
 | **Investment** | `/investment` | Portfolio tracker with AI-generated recommendations (SSE streaming) |
+| **Quiz Host** | `/quiz` | Party quiz with an ElevenLabs voice host and phone buzzers (WebSockets, no auth) — see [quiz_host/README.md](quiz_host/README.md) |
 | *(shared)* | `/utils` | Audio transcription via OpenAI Whisper |
 | *(shared)* | `/auth` | OAuth 2.0 (Google & Instagram) + JWT access/refresh tokens |
 
@@ -83,16 +84,21 @@ myBackend/
 │   ├── bobobidou.py         # Bobobidou — ingredient extraction
 │   ├── insta_poster.py      # Insta Poster — caption generation & posting
 │   ├── investment.py        # Investment — portfolio CRUD, metrics, AI reco
+│   ├── quiz.py              # Quiz Host — pages, REST & WebSockets (public)
 │   └── utils.py             # Shared — audio transcription
 ├── dependencies/            # Business logic & service layer
 │   ├── auth_handler.py      # JWT validation middleware (used by all apps)
 │   ├── auth_services/       # Google & Instagram OAuth implementations
 │   ├── insta_service.py     # Instagram Graph API (single & carousel posts)
-│   └── investment/          # Investment agents, tools, prompts
+│   ├── investment/          # Investment agents, tools, prompts
+│   └── quiz/                # Quiz Host game state machine, rooms, ElevenLabs token
 ├── models/                  # Pydantic schemas + SQLAlchemy ORM models
 ├── domain/                  # Domain entities and value objects
 ├── repositories/            # Data access layer
 ├── alembic/                 # DB migrations
+├── quiz_host/               # Quiz Host docs, agent config, question bank, standalone app
+├── tests/quiz/              # Quiz Host tests (pytest)
+├── static/quiz/             # Quiz Host web pages (host screen, player buzzer)
 └── static/uploads/          # Temporary image storage (auto-cleaned after posting)
 ```
 
@@ -153,6 +159,17 @@ All endpoints except the auth ones require a JWT Bearer token in the `Authorizat
 | `POST` | `/investment/watchlist` | Add to watchlist |
 | `DELETE` | `/investment/watchlist/{id}` | Remove from watchlist |
 | `GET` | `/investment/models` | List available LLM models |
+
+### Quiz Host (public)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/quiz` | Landing page: create or join a room |
+| `GET` | `/quiz/host/{code}` · `/quiz/play/{code}` | Host screen (TV) · player buzzer (phone) |
+| `POST` | `/quiz/api/rooms` | Create a room, returns its host key |
+| `GET` | `/quiz/api/rooms/{code}/qr.svg` | QR code of the join URL |
+| `GET` | `/quiz/api/rooms/{code}/eleven-token` | ElevenLabs conversation token (host key required) |
+| `WS` | `/quiz/ws/{code}/player` · `/quiz/ws/{code}/host` | Buzzes and game state · host actions and agent tool calls |
 
 ## Deployment
 
