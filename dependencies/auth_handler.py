@@ -25,7 +25,8 @@ class AuthHandler:
             sub: str = payload.get("sub")
             exp: int = payload.get("exp")
 
-            if sub is None:
+            # Refresh tokens (valid 30 days) must only be used on /auth/refresh-token
+            if sub is None or payload.get("type") != "access":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials",

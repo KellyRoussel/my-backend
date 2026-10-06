@@ -258,7 +258,8 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
         ).first()
         if not my_backend_token:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
-        if not my_backend_token.is_active:
+        # is_active is stored as the string "true"/"false": "false" is truthy
+        if my_backend_token.is_active != "true":
             raise HTTPException(status_code=401, detail="Refresh token is inactive")
 
         # 2. Decode the refresh token
