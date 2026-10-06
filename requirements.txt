@@ -19,5 +19,7 @@ langfuse>=3.0.0
 feedparser==6.0.12
 beautifulsoup4==4.13.4
 langchain-mcp-adapters==0.2.2
+# mcp 2.x removed mcp.shared.context.RequestContext, still imported by langchain-mcp-adapters 0.2.2
+mcp>=1.9,<2
 langchain-google-genai>=2.0.0
 firebase-admin>=6.5.0
