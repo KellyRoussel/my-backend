@@ -35,6 +35,67 @@ host page was opened with. `QUIZ_PUBLIC_BASE_URL` forces a specific one.
 
 Inside the full backend, the same pages are served by `main.py` under `/quiz`.
 
+## Running locally, step by step
+
+Run every command from the repository root: `config.py` reads `.env` from there.
+
+1. **Install the dependencies.**
+
+   ```bash
+   pip install -r quiz_host/requirements.txt
+   ```
+
+   If the full `requirements.txt` is already installed, `pip install segno websockets` is enough.
+
+2. **Add the ElevenLabs keys** (skip this and the next step to play in manual mode). If you
+   already have a `.env`, append these lines instead of copying the example over it:
+
+   ```
+   ELEVENLABS_API_KEY=sk_...
+   ELEVENLABS_AGENT_ID=agent_...
+   ```
+
+3. **Create the agent, once.**
+
+   ```bash
+   python quiz_host/agent/create_agent.py --dry-run               # inspect the payloads
+   python quiz_host/agent/create_agent.py --voice-id <VOICE_ID>   # create the tools, then the agent
+   ```
+
+   Pick an energetic French voice in the Voice Library and pass its id. The script prints the
+   `ELEVENLABS_AGENT_ID=...` line to paste into `.env`.
+
+4. **Start the server.**
+
+   ```bash
+   uvicorn quiz_host.app:app --reload
+   ```
+
+   This runs the quiz alone, without the database. With a database configured, `uvicorn main:app --reload`
+   works too and serves the same pages under `/quiz`.
+
+5. **Play on one computer.**
+   - Host screen: open <http://localhost:8000/quiz> and click **Ouvrir le plateau**.
+   - Players: open `http://localhost:8000/quiz/play/<CODE>` in other tabs. Each tab is a separate
+     player; buzz with a click or the space bar.
+   - Click **🎙️ Lancer l'animateur** (the browser asks for the microphone), then **▶️ Démarrer la partie**.
+   - Press `D` on the host screen for the debug panel: WebSocket events, agent tool calls and the
+     messages sent to the agent, with timestamps.
+
+6. **Play with real phones.** Phones cannot reach `localhost`, and the microphone requires HTTPS
+   outside `localhost`. Start a tunnel, then open its `https://` URL (not localhost) on the host
+   computer, so the QR code points to it:
+
+   ```bash
+   cloudflared tunnel --url http://localhost:8000     # or: ngrok http 8000
+   ```
+
+7. **Run the tests.**
+
+   ```bash
+   python -m pytest tests/quiz
+   ```
+
 ## How it works
 
 ```mermaid
