@@ -5,6 +5,8 @@ class Settings(BaseSettings):
 
     openai_bobobidou_key: str = ""
     openai_instaposter_key: str = ""
+    bobobidou_model: str = "gpt-4o-mini-2024-07-18"
+    bobobidou_max_image_mb: int = 10
     google_client_id: str = ""
     google_client_secret: str = ""
     insta_client_id: str = ""
