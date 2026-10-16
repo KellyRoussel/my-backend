@@ -41,6 +41,7 @@ No test suite or linter is currently configured.
 - `insta_poster_router` — AI content generation via OpenAI + Instagram Graph API posting
 - `bobobidou_router` — Image-to-ingredients extraction via OpenAI vision
 - `utils_router` — Audio transcription via OpenAI Whisper
+- `account_deletion_router` — Public HTML pages at `/account/delete` to delete one's account without the app (Google sign-in → confirmation). The authenticated API equivalent is `DELETE /auth/account`. Both use `dependencies/account_service.py`, which revokes the Google grant and deletes the `users` row with every row referencing it — `users` is shared by all apps, so this removes the user everywhere.
 
 **Auth flow**: OAuth state stored in `AuthState` DB table for CSRF protection. After OAuth callback, JWT access (60min) and refresh (30day) tokens are issued and stored in DB. Token validation happens via `auth_handler.py` dependency.
 

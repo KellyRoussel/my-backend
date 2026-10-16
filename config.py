@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     google_token_url: str = ""
     insta_token_url: str = ""
     google_user_info_url: str = ""
+    google_revoke_url: str = "https://oauth2.googleapis.com/revoke"
+    # Google redirect URI of the web account deletion page; defaults to
+    # <backend>/account/delete/callback, derived from auth_redirect_uri
+    account_deletion_redirect_uri: str = ""
     insta_graph_api: str = ""
     insta_refresh_token_url: str = ""
     secret_key: str = ""

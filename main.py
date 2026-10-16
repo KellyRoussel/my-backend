@@ -16,6 +16,7 @@ from config import settings
 from dependencies.auth_handler import auth_handler
 from dependencies.auth_services.google_auth_service import GoogleAuthService
 from endpoints.authentication import authentication_router
+from endpoints.account_deletion import account_deletion_router
 from endpoints.bobobidou import bobobidou_router
 from endpoints.insta_poster import insta_poster_router
 from endpoints.utils import utils_router
@@ -54,6 +55,7 @@ app.add_middleware(
 
 app.include_router(bobobidou_router, dependencies=[Depends(auth_handler)])
 app.include_router(authentication_router)
+app.include_router(account_deletion_router)
 app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 app.include_router(utils_router, dependencies=[Depends(auth_handler)])
 app.include_router(investment_router, dependencies=[Depends(auth_handler)])

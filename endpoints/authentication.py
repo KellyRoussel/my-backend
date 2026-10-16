@@ -10,6 +10,8 @@ from starlette import status
 
 from config import settings
 from database import get_db
+from dependencies.account_service import delete_user_account
+from dependencies.auth_handler import auth_handler
 from dependencies.auth_services.google_auth_service import google_auth_service
 from dependencies.auth_services.insta_auth_service import insta_auth_service
 from models.database_models import User, AuthProvider, MyBackendToken
@@ -240,6 +242,24 @@ async def revoke_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to revoke {provider} token"
         )
+
+
+@authentication_router.delete("/auth/account", dependencies=[Depends(auth_handler)])
+async def delete_account(request: Request, db: Session = Depends(get_db)):
+    """Delete the caller's account (our users row and tokens, not the Google account)
+    and revoke the Google grant. The users table is shared by all apps."""
+    user_id = request.state.user_id
+    try:
+        deleted = await delete_user_account(user_id, db)
+    except Exception as e:
+        print(f"🔴 Error deleting account {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete account"
+        )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Account deleted", "user_id": user_id}
 
 
 @authentication_router.post("/auth/refresh-token")
