@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlparse, quote, urlunparse
 
 from sqlalchemy import create_engine
@@ -32,9 +33,33 @@ engine = create_engine(
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Bobobidou connects with its own Postgres role, which only has access to the `bobobidou` schema
+if settings.bobobidou_database_url:
+    bobobidou_engine = create_engine(
+        _sanitize_db_url(settings.bobobidou_database_url),
+        poolclass=NullPool,
+        echo=False,
+    )
+else:
+    logging.getLogger(__name__).warning(
+        "BOBOBIDOU_DATABASE_URL is not set: Bobobidou uses the main database connection"
+    )
+    bobobidou_engine = engine
+
+BobobidouSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=bobobidou_engine)
+
+
 # Dependency to get database session
 def get_db():
     db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_bobobidou_db():
+    db = BobobidouSessionLocal()
     try:
         yield db
     finally:

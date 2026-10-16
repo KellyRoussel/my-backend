@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     insta_long_lived_token_url:str = ""
     database_url: str = ""
+    bobobidou_database_url: str = ""  # Connection as the `bobobidou_app` role (schema `bobobidou` only)
     openfigi_api_key: str = ""
     openai_investment_key: str = ""
     tavily_api_key: str = ""
