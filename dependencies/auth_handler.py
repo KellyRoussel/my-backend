@@ -8,9 +8,16 @@ from starlette import status
 from config import settings
 from models.authentication import User
 
+BOBOBIDOU_APP = "bobobidou"
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 class AuthHandler:
+    def __init__(self, bobobidou: bool = False):
+        # Bobobidou users live in their own schema: their tokens are only valid on the
+        # Bobobidou routes, and the other tokens are refused there
+        self.bobobidou = bobobidou
+
     async def __call__(self, request: Request, token: str = Depends(oauth2_scheme)):
         if token is None:
             raise HTTPException(
@@ -33,6 +40,13 @@ class AuthHandler:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
+            if (payload.get("app") == BOBOBIDOU_APP) != self.bobobidou:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token not valid for this app",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
             # check expiration
             expiration_time = datetime.fromtimestamp(exp, tz=timezone.utc)
             now = datetime.now(timezone.utc)
@@ -45,6 +59,7 @@ class AuthHandler:
 
             # Store user_id in request.state
             request.state.user_id = sub
+            request.state.app = payload.get("app")
 
             return True
 
@@ -58,3 +73,4 @@ class AuthHandler:
 
 # Création d'une instance de la class d'authentification
 auth_handler = AuthHandler()
+bobobidou_auth_handler = AuthHandler(bobobidou=True)

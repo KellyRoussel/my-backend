@@ -16,13 +16,23 @@ from models.database_models import (
     Investment,
     InvestmentTransaction,
 )
+from models.bobobidou_models import BobobidouBase, BOBOBIDOU_SCHEMA
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = [Base.metadata, BobobidouBase.metadata]
+
+# Schemas managed by these migrations (Supabase has others: auth, storage...)
+MANAGED_SCHEMAS = {None, "public", BOBOBIDOU_SCHEMA}
+
+
+def include_name(name, type_, parent_names):
+    if type_ == "schema":
+        return name in MANAGED_SCHEMAS
+    return True
 
 
 def get_url():
@@ -38,6 +48,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        include_name=include_name,
     )
 
     with context.begin_transaction():
@@ -61,6 +73,8 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             compare_type=True,
             compare_server_default=True,
+            include_schemas=True,
+            include_name=include_name,
         )
 
         with context.begin_transaction():

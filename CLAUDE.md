@@ -34,7 +34,7 @@ No test suite or linter is currently configured.
 - `dependencies/` — Service layer (business logic, external API calls)
 - `models/` — Pydantic schemas (`authentication.py`) and SQLAlchemy ORM models (`database_models.py`)
 - `config.py` — Pydantic `BaseSettings` loading from `.env`
-- `database.py` — SQLAlchemy session management (NullPool for Supabase free-tier)
+- `database.py` — SQLAlchemy session management (NullPool for Supabase free-tier). Two engines: `SessionLocal` (main `DATABASE_URL`) and `BobobidouSessionLocal` (`BOBOBIDOU_DATABASE_URL`, role `bobobidou_app`, falls back to the main URL when unset)
 
 **Routers**:
 - `authentication_router` — OAuth flows (Google, Instagram), JWT token management (access/refresh)
@@ -53,3 +53,4 @@ No test suite or linter is currently configured.
 - Images uploaded to `static/uploads/` with UUID filenames, deleted after Instagram posting
 - Tokens use soft-delete (`is_active` flag); old tokens deactivated on re-auth
 - Database: PostgreSQL via Supabase, SQLAlchemy ORM with `declarative_base()`
+- Bobobidou data is isolated in the `bobobidou` Postgres schema (`models/bobobidou_models.py`, own `BobobidouBase`), reachable only by the `bobobidou_app` role. Its users and refresh tokens never go to `public`: `dependencies/app_auth.py` picks the store from the `{app}` path param, and the JWTs carry an `app` claim. `bobobidou_auth_handler` only accepts `app=bobobidou` tokens and `auth_handler` refuses them. New Bobobidou tables go in that schema (the migration's default privileges grant them to the role)

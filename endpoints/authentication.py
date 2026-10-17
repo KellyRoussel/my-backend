@@ -10,15 +10,20 @@ from starlette import status
 
 from config import settings
 from database import get_db
-from dependencies.auth_services.google_auth_service import google_auth_service
+from dependencies.app_auth import (
+    AppAuthStore, get_auth_store, get_app_db, PERSONAL_AUTH_STORE,
+)
 from dependencies.auth_services.insta_auth_service import insta_auth_service
-from models.database_models import User, AuthProvider, MyBackendToken
+from models.database_models import AuthProvider
 
 authentication_router = APIRouter(tags=["Authentication"])
 
 
-def create_access_token(data: dict, type="access", expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, type="access", expires_delta: Optional[timedelta] = None, app: Optional[str] = None):
     to_encode = data.copy()
+    if app:
+        # Tells which app (and so which users store) the token belongs to
+        to_encode["app"] = app
     if expires_delta:
         expire = datetime.now() + expires_delta
     else:
@@ -27,8 +32,10 @@ def create_access_token(data: dict, type="access", expires_delta: Optional[timed
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
-async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, db: Session) -> User:
-    """Save or update user and their Google token"""
+async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, db: Session, store: AppAuthStore = PERSONAL_AUTH_STORE):
+    """Save a new refresh token for the user, deactivating the previous ones"""
+    User = store.user_model
+    MyBackendToken = store.refresh_token_model
 
     # Check if user exists (by Google ID)
     user_record = db.query(User).filter(User.id == user_id).first()
@@ -69,14 +76,16 @@ async def save_my_backend_refresh_token(user_id: str, refresh_token_data: Dict, 
 
 # Google Authentication Endpoints
 @authentication_router.get("/login/google/{app}")
-async def get_google_auth_url(app: str, redirect_uri_override: str = None, db: Session = Depends(get_db)):
-    auth_url = await google_auth_service.get_auth_url(app, db, override_redirect_uri=redirect_uri_override)
+async def get_google_auth_url(app: str, redirect_uri_override: str = None, db: Session = Depends(get_app_db)):
+    auth_url = await get_auth_store(app).google_auth_service.get_auth_url(app, db, override_redirect_uri=redirect_uri_override)
     return {"authorization_url": auth_url}
 
 
 # Instagram Authentication Endpoints
 @authentication_router.get("/login/insta/{app}")
 async def get_insta_auth_url(app: str, db: Session = Depends(get_db)):
+    if not get_auth_store(app).supports_instagram:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Instagram login is not available for this app")
     auth_url = await insta_auth_service.get_auth_url(app, db)
     return {"authorization_url": auth_url}
 
@@ -131,12 +140,14 @@ async def exchange_code(
         service: str,  # 'google' or 'instagram'
         state: str = None,
         redirect_uri_override: str = None,
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_app_db)
 ):
+    store = get_auth_store(app)
+
     # Select the appropriate service
     if service == AuthProvider.GOOGLE.value:
-        auth_service = google_auth_service
-    elif service == AuthProvider.INSTAGRAM.value:
+        auth_service = store.google_auth_service
+    elif service == AuthProvider.INSTAGRAM.value and store.supports_instagram:
         auth_service = insta_auth_service
     else:
         raise HTTPException(
@@ -163,15 +174,15 @@ async def exchange_code(
 
         # Create access token
         print(f"🙂 Creating access token")
-        access_token = create_access_token({"sub": str(user_record.id)}, type="access", expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
+        access_token = create_access_token({"sub": str(user_record.id)}, type="access", expires_delta=timedelta(minutes=settings.access_token_expire_minutes), app=app)
 
         # Create refresh token
         print(f"🙂 Creating refresh token")
-        refresh_token = create_access_token({"sub": str(user_record.id)}, type="refresh", expires_delta=timedelta(days=settings.refresh_token_expire_days))
+        refresh_token = create_access_token({"sub": str(user_record.id)}, type="refresh", expires_delta=timedelta(days=settings.refresh_token_expire_days), app=app)
 
         # Save refresh token to database
         print(f"🙂 Saving refresh token to DB")
-        await save_my_backend_refresh_token(user_record.id, {"access_token": refresh_token, "token_type": "refresh", "expires_in": settings.refresh_token_expire_days * 86400}, db)
+        await save_my_backend_refresh_token(user_record.id, {"access_token": refresh_token, "token_type": "refresh", "expires_in": settings.refresh_token_expire_days * 86400}, db, store)
 
         return {
             "access_token": access_token,
@@ -243,34 +254,19 @@ async def revoke_token(
 
 
 @authentication_router.post("/auth/refresh-token")
-async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
+async def get_refresh_token(request: Request):
     refresh_token = request.headers.get("X-Refresh-Token")
     if not refresh_token:
         raise HTTPException(status_code=400, detail="Missing refresh token")
 
     try:
         print(f"🙂 Starting refresh token")
-        # 1. Check the refresh token exist in db
-        print(f"🙂 Checking refresh token in DB")
-        my_backend_token = db.query(MyBackendToken).filter(
-            MyBackendToken.access_token == refresh_token,
-            MyBackendToken.token_type == "refresh"
-        ).first()
-        if not my_backend_token:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
-        # is_active is stored as the string "true"/"false": "false" is truthy
-        if my_backend_token.is_active != "true":
-            raise HTTPException(status_code=401, detail="Refresh token is inactive")
-
-        # 2. Decode the refresh token
+        # 1. Decode the refresh token (checks the signature and the expiration)
         print(f"🙂 Decoding refresh token")
         payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-        # 3. Ensure token is not expired
-        print(f"🙂 Checking refresh token expiration")
         exp = payload.get("exp")
         if exp is None:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -278,28 +274,46 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
         now = datetime.now(timezone.utc)
         if expiration_time < now:
             raise HTTPException(status_code=401, detail="Refresh token expired")
+        app = payload.get("app")
 
-        # 4. Check the user exists
-        print(f"🙂 Checking user in DB")
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        # 2. Check the refresh token exist in db, in the store of its app
+        print(f"🙂 Checking refresh token in DB")
+        store = get_auth_store(app)
+        with store.session_factory() as db:
+            MyBackendToken = store.refresh_token_model
+            my_backend_token = db.query(MyBackendToken).filter(
+                MyBackendToken.access_token == refresh_token,
+                MyBackendToken.token_type == "refresh"
+            ).first()
+            if not my_backend_token:
+                raise HTTPException(status_code=401, detail="Invalid refresh token")
+            # is_active is stored as the string "true"/"false": "false" is truthy
+            if my_backend_token.is_active != "true":
+                raise HTTPException(status_code=401, detail="Refresh token is inactive")
 
-        # Create access token
-        print(f"🙂 Creating access token")
-        access_token = create_access_token({"sub": str(user_id)}, type="access",
-                                           expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
+            # 3. Check the user exists
+            print(f"🙂 Checking user in DB")
+            user = db.query(store.user_model).filter(store.user_model.id == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
 
-        # Create refresh token
-        print(f"🙂 Creating refresh token")
-        refresh_token = create_access_token({"sub": str(user_id)}, type="refresh",
-                                            expires_delta=timedelta(days=settings.refresh_token_expire_days))
+            # Create access token
+            print(f"🙂 Creating access token")
+            access_token = create_access_token({"sub": str(user_id)}, type="access",
+                                               expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+                                               app=app)
 
-        # Save refresh token to database
-        print(f"🙂 Saving refresh token to DB")
-        await save_my_backend_refresh_token(user_id, {"access_token": refresh_token, "token_type": "refresh",
-                                                             "expires_in": settings.refresh_token_expire_days * 86400},
-                                            db)
+            # Create refresh token
+            print(f"🙂 Creating refresh token")
+            refresh_token = create_access_token({"sub": str(user_id)}, type="refresh",
+                                                expires_delta=timedelta(days=settings.refresh_token_expire_days),
+                                                app=app)
+
+            # Save refresh token to database
+            print(f"🙂 Saving refresh token to DB")
+            await save_my_backend_refresh_token(user_id, {"access_token": refresh_token, "token_type": "refresh",
+                                                                 "expires_in": settings.refresh_token_expire_days * 86400},
+                                                db, store)
 
         return {
             "access_token": access_token,
@@ -314,7 +328,7 @@ async def get_refresh_token(request: Request, db: Session = Depends(get_db)):
 
 
 @authentication_router.post("/auth/validate-token")
-async def validate_token(request: Request, db: Session = Depends(get_db)):
+async def validate_token(request: Request):
     token = request.headers.get("Authorization")
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
@@ -325,7 +339,9 @@ async def validate_token(request: Request, db: Session = Depends(get_db)):
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-        user = db.query(User).filter(User.id == user_id).first()
+        store = get_auth_store(payload.get("app"))
+        with store.session_factory() as db:
+            user = db.query(store.user_model).filter(store.user_model.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
