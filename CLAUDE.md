@@ -34,14 +34,14 @@ No test suite or linter is currently configured.
 - `dependencies/` — Service layer (business logic, external API calls)
 - `models/` — Pydantic schemas (`authentication.py`) and SQLAlchemy ORM models (`database_models.py`)
 - `config.py` — Pydantic `BaseSettings` loading from `.env`
-- `database.py` — SQLAlchemy session management (NullPool for Supabase free-tier)
+- `database.py` — SQLAlchemy session management (NullPool for Supabase free-tier). Two engines: `SessionLocal` (main `DATABASE_URL`) and `BobobidouSessionLocal` (`BOBOBIDOU_DATABASE_URL`, role `bobobidou_app`, falls back to the main URL when unset)
 
 **Routers**:
 - `authentication_router` — OAuth flows (Google, Instagram), JWT token management (access/refresh)
 - `insta_poster_router` — AI content generation via OpenAI + Instagram Graph API posting
 - `bobobidou_router` — Image-to-ingredients extraction via OpenAI vision
 - `utils_router` — Audio transcription via OpenAI Whisper
-- `account_deletion_router` — Public HTML pages at `/account/delete` to delete one's account without the app (Google sign-in → confirmation). The authenticated API equivalent is `DELETE /auth/account`. Both use `dependencies/account_service.py`, which revokes the Google grant and deletes the `users` row with every row referencing it — `users` is shared by all apps, so this removes the user everywhere.
+- `account_deletion_router` — Public HTML pages at `/account/delete` to delete one's Bobobidou account without the app (Google sign-in → confirmation; the fresh Google token is revoked). The authenticated API equivalent is `DELETE /bobobidou/account`. Both use `dependencies/account_service.py`, which only deletes the user and refresh tokens in the `bobobidou` schema
 
 **Auth flow**: OAuth state stored in `AuthState` DB table for CSRF protection. After OAuth callback, JWT access (60min) and refresh (30day) tokens are issued and stored in DB. Token validation happens via `auth_handler.py` dependency.
 
@@ -54,3 +54,4 @@ No test suite or linter is currently configured.
 - Images uploaded to `static/uploads/` with UUID filenames, deleted after Instagram posting
 - Tokens use soft-delete (`is_active` flag); old tokens deactivated on re-auth
 - Database: PostgreSQL via Supabase, SQLAlchemy ORM with `declarative_base()`
+- Bobobidou data is isolated in the `bobobidou` Postgres schema (`models/bobobidou_models.py`, own `BobobidouBase`), reachable only by the `bobobidou_app` role. Its users and refresh tokens never go to `public`: `dependencies/app_auth.py` picks the store from the `{app}` path param, and the JWTs carry an `app` claim. `bobobidou_auth_handler` only accepts `app=bobobidou` tokens and `auth_handler` refuses them. New Bobobidou tables go in that schema (the migration's default privileges grant them to the role)

@@ -1,4 +1,4 @@
-"""Web page to delete one's account without the app (required by Google Play).
+"""Web page to delete one's Bobobidou account without the app (required by Google Play).
 
 Flow: GET /account/delete (explanations) → /account/delete/start (Google sign-in)
 → /account/delete/callback (confirmation form) → POST /account/delete/confirm.
@@ -12,15 +12,18 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from config import settings
-from database import get_db
-from dependencies.account_service import delete_user_account
-from dependencies.auth_services.google_auth_service import google_auth_service
+from database import get_bobobidou_db
+from dependencies.account_service import delete_bobobidou_account, revoke_google_token
+from dependencies.app_auth import BOBOBIDOU_AUTH_STORE
+from dependencies.auth_handler import BOBOBIDOU_APP
 from endpoints.authentication import create_access_token
-from models.database_models import User
+from models.bobobidou_models import BobobidouUser
 
 account_deletion_router = APIRouter(prefix="/account/delete", tags=["Account deletion"], include_in_schema=False)
 
-# AuthState.app_name used for the Google sign-in of this page
+# Google sign-in with the Bobobidou users store (state in bobobidou.auth_states)
+_google_auth_service = BOBOBIDOU_AUTH_STORE.google_auth_service
+# auth_states.app_name of this page's sign-in
 _APP_NAME = "account_deletion"
 _TOKEN_TYPE = "account_deletion"
 _CONFIRM_TOKEN_MINUTES = 10
@@ -82,7 +85,7 @@ utilisé dans l'application.</p>
 <h2>Ce qui est supprimé</h2>
 <ul>
   <li>votre compte (nom, adresse e-mail, photo de profil) ;</li>
-  <li>vos jetons de connexion, et l'accès de Bobobidou à votre compte Google est révoqué.</li>
+  <li>vos jetons de connexion.</li>
 </ul>
 <p>La suppression est immédiate et définitive. Votre compte Google lui-même n'est pas supprimé.
 Votre journal (repas, douleurs) n'est stocké que sur votre téléphone : il disparaît en désinstallant l'application.</p>
@@ -91,15 +94,14 @@ Votre journal (repas, douleurs) n'est stocké que sur votre téléphone : il dis
 <h2>Delete my Bobobidou account</h2>
 <p class="muted">Delete your account from the app (<strong>Me</strong> tab → <strong>Delete my account</strong>)
 or from this page by signing in with the Google account you use in the app. Your account (name, email,
-profile picture) and sign-in tokens are deleted immediately and Bobobidou's access to your Google account
-is revoked. Your Google account itself is not deleted. Your journal is only stored on your phone and is
+profile picture) and sign-in tokens are deleted immediately. Your Google account itself is not deleted. Your journal is only stored on your phone and is
 removed when you uninstall the app.</p>
 """)
 
 
 @account_deletion_router.get("/start")
-async def start_account_deletion(db: Session = Depends(get_db)):
-    auth_url = await google_auth_service.get_auth_url(_APP_NAME, db, override_redirect_uri=_redirect_uri())
+async def start_account_deletion(db: Session = Depends(get_bobobidou_db)):
+    auth_url = await _google_auth_service.get_auth_url(_APP_NAME, db, override_redirect_uri=_redirect_uri())
     return RedirectResponse(auth_url)
 
 
@@ -108,21 +110,28 @@ async def account_deletion_callback(
         code: str = None,
         state: str = None,
         error: str = None,
-        db: Session = Depends(get_db),
+        db: Session = Depends(get_bobobidou_db),
 ):
     if error or not code or not state:
         return _error("La connexion Google a échoué ou a été annulée.", "Google sign-in failed or was cancelled.")
 
+    token_info = None
     try:
-        token_info = await google_auth_service.exchange_code_for_token(
+        token_info = await _google_auth_service.exchange_code_for_token(
             code, _APP_NAME, state, db, override_redirect_uri=_redirect_uri())
-        user_info = await google_auth_service.get_user_info(token_info)
+        user_info = await _google_auth_service.get_user_info(token_info)
     except Exception as e:
         print(f"🔴 Account deletion sign-in failed: {e}")
         return _error("La connexion Google a échoué.", "Google sign-in failed.")
+    finally:
+        # Only needed to identify the user: revoking it also revokes the user's
+        # grant to Bobobidou (its Google tokens are never stored)
+        if token_info and token_info.get("access_token"):
+            await revoke_google_token(token_info["access_token"])
 
     # users.id is our own UUID: Google users are matched by email (see save_user_and_token)
-    user = db.query(User).filter(User.email == user_info.email).first() if user_info.email else None
+    user = (db.query(BobobidouUser).filter(BobobidouUser.email == user_info.email).first()
+            if user_info.email else None)
     if not user:
         return _page("Aucun compte", f"""
 <h1>Aucun compte</h1>
@@ -131,7 +140,7 @@ async def account_deletion_callback(
 """, 404)
 
     confirm_token = create_access_token({"sub": user.id}, type=_TOKEN_TYPE,
-                                        expires_delta=timedelta(minutes=_CONFIRM_TOKEN_MINUTES))
+                                        expires_delta=timedelta(minutes=_CONFIRM_TOKEN_MINUTES), app=BOBOBIDOU_APP)
     return _page("Confirmer la suppression", f"""
 <h1>Confirmer la suppression</h1>
 <p>Supprimer définitivement le compte associé à <strong>{escape(user.email)}</strong> ?
@@ -146,18 +155,18 @@ Cette action est irréversible.</p>
 
 
 @account_deletion_router.post("/confirm", response_class=HTMLResponse)
-async def confirm_account_deletion(token: str = Form(...), db: Session = Depends(get_db)):
+async def confirm_account_deletion(token: str = Form(...), db: Session = Depends(get_bobobidou_db)):
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except jwt.ExpiredSignatureError:
         return _error("La demande a expiré, reconnectez-vous.", "The request expired, please sign in again.")
     except jwt.PyJWTError:
         return _error("Demande invalide.", "Invalid request.")
-    if payload.get("type") != _TOKEN_TYPE or not payload.get("sub"):
+    if payload.get("type") != _TOKEN_TYPE or payload.get("app") != BOBOBIDOU_APP or not payload.get("sub"):
         return _error("Demande invalide.", "Invalid request.")
 
     try:
-        await delete_user_account(payload["sub"], db)
+        delete_bobobidou_account(payload["sub"], db)
     except Exception as e:
         print(f"🔴 Error deleting account {payload['sub']}: {e}")
         return _error("La suppression a échoué, réessayez plus tard.", "Deletion failed, please try again later.", 500)
@@ -165,6 +174,6 @@ async def confirm_account_deletion(token: str = Form(...), db: Session = Depends
     # An already deleted account (form sent twice) ends here too
     return _page("Compte supprimé", """
 <h1>Compte supprimé</h1>
-<p>Votre compte Bobobidou a été supprimé et l'accès à votre compte Google a été révoqué.</p>
-<p class="muted">Your Bobobidou account has been deleted and access to your Google account has been revoked.</p>
+<p>Votre compte Bobobidou a été supprimé et son accès à votre compte Google a été révoqué.</p>
+<p class="muted">Your Bobobidou account has been deleted and its access to your Google account has been revoked.</p>
 """)
