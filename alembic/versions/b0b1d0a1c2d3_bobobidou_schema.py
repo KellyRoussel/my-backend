@@ -5,8 +5,7 @@ Isolate the Bobobidou data in a dedicated `bobobidou` schema, with a
 
 - creates the schema, the role (NOLOGIN: its password is set by hand, out of git)
   and the tables: users, refresh_tokens, auth_states, photo_quotas, subscriptions
-- copies the Bobobidou users and their active refresh tokens from `public`
-  (the `public` rows are left untouched: they are cleaned up later, by hand)
+- no data is copied from `public`: the Bobobidou users create a new account
 
 Revision ID: b0b1d0a1c2d3
 Revises: a7b8c9d0e1f2
@@ -24,22 +23,6 @@ depends_on = None
 
 SCHEMA = "bobobidou"
 ROLE = "bobobidou_app"
-
-# Users and tokens tables are shared by all the apps, with no column telling which
-# app a user comes from. A Bobobidou user is a Google user with no data in the
-# personal features (Instagram, investment, push notifications).
-# Check the list with this query before upgrading; a user missing from it just
-# has to log in again in the app.
-BOBOBIDOU_USERS_SELECT = """
-    SELECT u.id FROM public.users u
-    WHERE u.primary_provider = 'GOOGLE'
-      AND NOT EXISTS (SELECT 1 FROM public.instagram_tokens t WHERE t.user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.investment_profiles t WHERE t.user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.investments t WHERE t.user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.investment_watchlist t WHERE t.user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.investment_reports t WHERE t.user_id = u.id)
-      AND NOT EXISTS (SELECT 1 FROM public.device_tokens t WHERE t.user_id = u.id)
-"""
 
 auth_provider = postgresql.ENUM("GOOGLE", "INSTAGRAM", name="authprovider", schema=SCHEMA, create_type=False)
 
@@ -126,26 +109,6 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
     op.create_index('ix_bobobidou_subscriptions_user_id', 'subscriptions', ['user_id'], schema=SCHEMA)
-
-    # Copy the Bobobidou users and their still valid refresh tokens
-    op.execute(f"""
-        INSERT INTO {SCHEMA}.users
-            (id, email, username, display_name, profile_picture_url, primary_provider, created_at, updated_at)
-        SELECT id, email, username, display_name, profile_picture_url,
-               primary_provider::text::{SCHEMA}.authprovider, created_at, updated_at
-        FROM public.users
-        WHERE id IN ({BOBOBIDOU_USERS_SELECT})
-    """)
-    op.execute(f"""
-        INSERT INTO {SCHEMA}.refresh_tokens
-            (user_id, access_token, token_type, expires_in, expires_at, scope, created_at, updated_at, is_active)
-        SELECT user_id, access_token, token_type, expires_in, expires_at, scope, created_at, updated_at, is_active
-        FROM public.my_backend_tokens
-        WHERE user_id IN ({BOBOBIDOU_USERS_SELECT})
-          AND token_type = 'refresh'
-          AND is_active = 'true'
-          AND (expires_at IS NULL OR expires_at > now() AT TIME ZONE 'utc')
-    """)
 
     # Dedicated role: read/write on the bobobidou tables only, no DDL (the
     # migrations run with the admin user). LOGIN and password are set by hand.

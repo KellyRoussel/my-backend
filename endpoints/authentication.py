@@ -11,7 +11,7 @@ from starlette import status
 from config import settings
 from database import get_db
 from dependencies.app_auth import (
-    AppAuthStore, get_auth_store, get_app_db, PERSONAL_AUTH_STORE, BOBOBIDOU_AUTH_STORE, BOBOBIDOU_APP,
+    AppAuthStore, get_auth_store, get_app_db, PERSONAL_AUTH_STORE,
 )
 from dependencies.auth_services.insta_auth_service import insta_auth_service
 from models.database_models import AuthProvider
@@ -253,25 +253,6 @@ async def revoke_token(
         )
 
 
-def _find_refresh_token_store(refresh_token: str, app: Optional[str]) -> Optional[AppAuthStore]:
-    """Store holding this refresh token.
-
-    Tokens issued before the `app` claim existed are looked up in both stores,
-    Bobobidou first: the migration copied the Bobobidou ones to the `bobobidou`
-    schema and they are still in `public` until the cleanup.
-    """
-    stores = [get_auth_store(app)] if app else [BOBOBIDOU_AUTH_STORE, PERSONAL_AUTH_STORE]
-    for store in stores:
-        with store.session_factory() as db:
-            found = db.query(store.refresh_token_model.id).filter(
-                store.refresh_token_model.access_token == refresh_token,
-                store.refresh_token_model.token_type == "refresh"
-            ).first()
-            if found:
-                return store
-    return None
-
-
 @authentication_router.post("/auth/refresh-token")
 async def get_refresh_token(request: Request):
     refresh_token = request.headers.get("X-Refresh-Token")
@@ -297,13 +278,7 @@ async def get_refresh_token(request: Request):
 
         # 2. Check the refresh token exist in db, in the store of its app
         print(f"🙂 Checking refresh token in DB")
-        store = _find_refresh_token_store(refresh_token, app)
-        if store is None:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
-        if app is None and store is BOBOBIDOU_AUTH_STORE:
-            # Legacy Bobobidou token: the new ones carry the app claim
-            app = BOBOBIDOU_APP
-
+        store = get_auth_store(app)
         with store.session_factory() as db:
             MyBackendToken = store.refresh_token_model
             my_backend_token = db.query(MyBackendToken).filter(
