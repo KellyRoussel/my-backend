@@ -15,12 +15,14 @@ from dependencies.auth_services.base_auth_service import BaseAuthService
 
 class GoogleAuthService(BaseAuthService):
 
-    def __init__(self, user_model=User, auth_state_model=AuthState, token_model=GoogleToken):
+    def __init__(self, user_model=User, auth_state_model=AuthState, token_model=GoogleToken, provider=AuthProvider.GOOGLE):
         # Models are injected so that each app can store its users in its own schema.
         # token_model=None: the Google tokens are not stored (the app only uses Google to log in)
         self.user_model = user_model
         self.auth_state_model = auth_state_model
         self.token_model = token_model
+        # Google member of the provider enum used by these models
+        self.provider = provider
 
     async def get_auth_url(self, app: str, db: Session = None, override_redirect_uri: str = None) -> str:
         # Generate state for CSRF protection
@@ -32,7 +34,7 @@ class GoogleAuthService(BaseAuthService):
             auth_state = self.auth_state_model(
                 state=state,
                 app_name=app,
-                provider=AuthProvider.GOOGLE.value,
+                provider=self.provider.value,
                 expires_at=expires_at
             )
             db.add(auth_state)
@@ -60,7 +62,7 @@ class GoogleAuthService(BaseAuthService):
             auth_state = db.query(self.auth_state_model).filter(
                 self.auth_state_model.state == state,
                 self.auth_state_model.app_name == app,
-                self.auth_state_model.provider == AuthProvider.GOOGLE,
+                self.auth_state_model.provider == self.provider,
                 self.auth_state_model.expires_at > datetime.utcnow()
             ).first()
 
@@ -147,7 +149,7 @@ class GoogleAuthService(BaseAuthService):
                     username=user_info.email.split('@')[0],  # Use email prefix as username
                     display_name=user_info.name,
                     profile_picture_url=user_info.picture,
-                    primary_provider=AuthProvider.GOOGLE
+                    primary_provider=self.provider
                 )
                 db.add(user_record)
                 db.flush()

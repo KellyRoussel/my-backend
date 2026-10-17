@@ -4,16 +4,21 @@ They have their own declarative base so that nothing links them to the personal
 backend tables in `public`: the `bobobidou_app` Postgres role only has access to
 this schema.
 """
+import enum
 from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Text, Enum, MetaData
 from sqlalchemy.orm import declarative_base, relationship
 
-from models.database_models import AuthProvider
 
 BOBOBIDOU_SCHEMA = "bobobidou"
 
 BobobidouBase = declarative_base(metadata=MetaData(schema=BOBOBIDOU_SCHEMA))
+
+
+class BobobidouAuthProvider(enum.Enum):
+    """Login providers offered by Bobobidou: only Google for now."""
+    GOOGLE = "GOOGLE"
 
 
 class BobobidouUser(BobobidouBase):
@@ -24,7 +29,7 @@ class BobobidouUser(BobobidouBase):
     username = Column(String, nullable=True)
     display_name = Column(String, nullable=True)
     profile_picture_url = Column(String, nullable=True)
-    primary_provider = Column(Enum(AuthProvider, name="authprovider", schema=BOBOBIDOU_SCHEMA), nullable=False)
+    primary_provider = Column(Enum(BobobidouAuthProvider, name="authprovider", schema=BOBOBIDOU_SCHEMA), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -54,6 +59,6 @@ class BobobidouAuthState(BobobidouBase):
 
     state = Column(String, primary_key=True)
     app_name = Column(String, nullable=False)
-    provider = Column(Enum(AuthProvider, name="authprovider", schema=BOBOBIDOU_SCHEMA), nullable=False)
+    provider = Column(Enum(BobobidouAuthProvider, name="authprovider", schema=BOBOBIDOU_SCHEMA), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)

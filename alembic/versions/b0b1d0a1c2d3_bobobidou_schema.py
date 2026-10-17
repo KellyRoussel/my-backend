@@ -24,12 +24,13 @@ depends_on = None
 SCHEMA = "bobobidou"
 ROLE = "bobobidou_app"
 
-auth_provider = postgresql.ENUM("GOOGLE", "INSTAGRAM", name="authprovider", schema=SCHEMA, create_type=False)
+# Bobobidou only offers the Google login for now
+auth_provider = postgresql.ENUM("GOOGLE", name="authprovider", schema=SCHEMA, create_type=False)
 
 
 def upgrade() -> None:
     op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-    op.execute(f"CREATE TYPE {SCHEMA}.authprovider AS ENUM ('GOOGLE', 'INSTAGRAM')")
+    op.execute(f"CREATE TYPE {SCHEMA}.authprovider AS ENUM ('GOOGLE')")
 
     op.create_table(
         'users',

@@ -15,7 +15,9 @@ from sqlalchemy.orm import sessionmaker
 from database import SessionLocal, BobobidouSessionLocal
 from dependencies.auth_handler import BOBOBIDOU_APP
 from dependencies.auth_services.google_auth_service import GoogleAuthService, google_auth_service
-from models.bobobidou_models import BobobidouUser, BobobidouRefreshToken, BobobidouAuthState
+from models.bobobidou_models import (
+    BobobidouUser, BobobidouRefreshToken, BobobidouAuthState, BobobidouAuthProvider,
+)
 from models.database_models import User, MyBackendToken
 
 
@@ -45,6 +47,7 @@ BOBOBIDOU_AUTH_STORE = AppAuthStore(
         user_model=BobobidouUser,
         auth_state_model=BobobidouAuthState,
         token_model=None,
+        provider=BobobidouAuthProvider.GOOGLE,
     ),
     supports_instagram=False,
 )
