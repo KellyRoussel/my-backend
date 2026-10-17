@@ -4,7 +4,7 @@ Isolate the Bobobidou data in a dedicated `bobobidou` schema, with a
 `bobobidou_app` Postgres role that only has access to this schema.
 
 - creates the schema, the role (NOLOGIN: its password is set by hand, out of git)
-  and the tables: users, refresh_tokens, auth_states, photo_quotas, subscriptions
+  and the tables: users, refresh_tokens, auth_states
 - no data is copied from `public`: the Bobobidou users create a new account
 
 Revision ID: b0b1d0a1c2d3
@@ -75,41 +75,6 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
 
-    op.create_table(
-        'photo_quotas',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('user_id', sa.String(), nullable=False),
-        sa.Column('period_start', sa.Date(), nullable=False),
-        sa.Column('used_count', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], [f'{SCHEMA}.users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('user_id', 'period_start', name='uq_photo_quotas_user_period'),
-        schema=SCHEMA,
-    )
-    op.create_index('ix_bobobidou_photo_quotas_user_id', 'photo_quotas', ['user_id'], schema=SCHEMA)
-
-    op.create_table(
-        'subscriptions',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('user_id', sa.String(), nullable=False),
-        sa.Column('platform', sa.String(length=10), nullable=False),
-        sa.Column('product_id', sa.String(), nullable=False),
-        sa.Column('purchase_token', sa.Text(), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False, server_default='active'),
-        sa.Column('auto_renewing', sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column('started_at', sa.DateTime(), nullable=False),
-        sa.Column('expires_at', sa.DateTime(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], [f'{SCHEMA}.users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('purchase_token', name='uq_subscriptions_purchase_token'),
-        schema=SCHEMA,
-    )
-    op.create_index('ix_bobobidou_subscriptions_user_id', 'subscriptions', ['user_id'], schema=SCHEMA)
-
     # Dedicated role: read/write on the bobobidou tables only, no DDL (the
     # migrations run with the admin user). LOGIN and password are set by hand.
     op.execute(f"""
@@ -135,8 +100,6 @@ def downgrade() -> None:
     # The role is kept (it may hold a password set by hand): DROP ROLE by hand if needed
     op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {SCHEMA} REVOKE ALL ON TABLES FROM {ROLE}")
     op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {SCHEMA} REVOKE ALL ON SEQUENCES FROM {ROLE}")
-    op.drop_table('subscriptions', schema=SCHEMA)
-    op.drop_table('photo_quotas', schema=SCHEMA)
     op.drop_table('auth_states', schema=SCHEMA)
     op.drop_table('refresh_tokens', schema=SCHEMA)
     op.drop_table('users', schema=SCHEMA)
