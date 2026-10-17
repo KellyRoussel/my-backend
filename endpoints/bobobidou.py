@@ -2,9 +2,12 @@ import base64
 import json
 
 from openai import AsyncOpenAI
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
+from sqlalchemy.orm import Session
 
 from config import settings
+from database import get_bobobidou_db
+from dependencies.account_service import delete_bobobidou_account
 
 bobobidou_router = APIRouter(prefix="/bobobidou", tags=["Bobobidou"])
 
@@ -87,3 +90,17 @@ async def get_ingredients(language: str, file: UploadFile = File(...)):
         # Don't leak internal errors (OpenAI messages, keys config...) to the client
         print(f"🔴 Bobobidou ingredients error: {e}")
         raise HTTPException(status_code=502, detail="Ingredient recognition failed")
+
+
+@bobobidou_router.delete("/account")
+async def delete_account(request: Request, db: Session = Depends(get_bobobidou_db)):
+    """Delete the caller's Bobobidou account (user and refresh tokens, not the Google account)."""
+    user_id = request.state.user_id
+    try:
+        deleted = delete_bobobidou_account(user_id, db)
+    except Exception as e:
+        print(f"🔴 Error deleting Bobobidou account {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account")
+    if not deleted:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Account deleted", "user_id": user_id}
