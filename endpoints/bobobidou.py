@@ -1,13 +1,16 @@
 import base64
 import json
+from datetime import datetime, timezone
 
 from openai import AsyncOpenAI
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_bobobidou_db
 from dependencies.account_service import delete_bobobidou_account
+from dependencies.photo_quota_service import PhotoLimitReached, consume_photo, next_reset, refund_photo
 
 bobobidou_router = APIRouter(prefix="/bobobidou", tags=["Bobobidou"])
 
@@ -17,7 +20,12 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 @bobobidou_router.post("/ingredients")
-async def get_ingredients(language: str, file: UploadFile = File(...)):
+async def get_ingredients(
+    request: Request,
+    language: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_bobobidou_db),
+):
     language_name = SUPPORTED_LANGUAGES.get(language.lower())
     if language_name is None:
         raise HTTPException(status_code=400, detail="Unsupported language")
@@ -33,6 +41,23 @@ async def get_ingredients(language: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="Image too large")
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty image")
+
+    # Count the photo before calling OpenAI, given back if the analysis fails
+    user_id = request.state.user_id
+    try:
+        consume_photo(user_id, db)
+    except PhotoLimitReached as e:
+        reset_at = next_reset()
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": "Daily photo limit reached",
+                "code": "daily_photo_limit" if e.scope == "user" else "global_photo_limit",
+                "limit": e.limit,
+                "reset_at": reset_at.isoformat(),
+            },
+            headers={"Retry-After": str(int((reset_at - datetime.now(timezone.utc)).total_seconds()))},
+        )
 
     client = AsyncOpenAI(api_key=settings.openai_bobobidou_key)
 
@@ -89,6 +114,7 @@ async def get_ingredients(language: str, file: UploadFile = File(...)):
     except Exception as e:
         # Don't leak internal errors (OpenAI messages, keys config...) to the client
         print(f"🔴 Bobobidou ingredients error: {e}")
+        refund_photo(user_id, db)
         raise HTTPException(status_code=502, detail="Ingredient recognition failed")
 
 

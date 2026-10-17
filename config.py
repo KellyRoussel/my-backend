@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     openai_instaposter_key: str = ""
     bobobidou_model: str = "gpt-4o-mini-2024-07-18"
     bobobidou_max_image_mb: int = 10
+    bobobidou_daily_photo_limit: int = 5  # Photos analysed per user and per day (UTC)
+    bobobidou_global_daily_photo_limit: int = 500  # All users together, protects the OpenAI bill
     google_client_id: str = ""
     google_client_secret: str = ""
     insta_client_id: str = ""

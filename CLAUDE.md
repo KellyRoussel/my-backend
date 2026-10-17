@@ -39,7 +39,7 @@ No test suite or linter is currently configured.
 **Routers**:
 - `authentication_router` — OAuth flows (Google, Instagram), JWT token management (access/refresh)
 - `insta_poster_router` — AI content generation via OpenAI + Instagram Graph API posting
-- `bobobidou_router` — Image-to-ingredients extraction via OpenAI vision
+- `bobobidou_router` — Image-to-ingredients extraction via OpenAI vision, limited per day by `dependencies/photo_quota_service.py` (`BOBOBIDOU_DAILY_PHOTO_LIMIT` per user, `BOBOBIDOU_GLOBAL_DAILY_PHOTO_LIMIT` for everyone, UTC days, 429 with a `code` when reached). The counters in `bobobidou.photo_usage` are keyed by an HMAC of the user id and have no FK to `users`: they survive an account deletion, so deleting/recreating an account does not reset the limit. `daily_photo_limit()` is where subscribers will get more
 - `utils_router` — Audio transcription via OpenAI Whisper
 - `account_deletion_router` — Public HTML pages at `/account/delete` to delete one's Bobobidou account without the app (Google sign-in → confirmation; the fresh Google token is revoked). The authenticated API equivalent is `DELETE /bobobidou/account`. Both use `dependencies/account_service.py`, which only deletes the user and refresh tokens in the `bobobidou` schema
 
