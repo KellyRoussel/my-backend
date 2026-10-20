@@ -16,17 +16,19 @@ from models.database_models import (
     Investment,
     InvestmentTransaction,
 )
-from models.bobobidou_models import BobobidouBase, BOBOBIDOU_SCHEMA
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = [Base.metadata, BobobidouBase.metadata]
+target_metadata = Base.metadata
 
-# Schemas managed by these migrations (Supabase has others: auth, storage...)
-MANAGED_SCHEMAS = {None, "public", BOBOBIDOU_SCHEMA}
+# Schemas managed by these migrations (Supabase has others: auth, storage...).
+# `bobobidou` is managed by the bobobidou_backend repo (own migrations, version
+# table `bobobidou.alembic_version`): b0b1d0a1c2d3 and c2d3e4f5a6b7 stay here as
+# history, new Bobobidou migrations go there
+MANAGED_SCHEMAS = {None, "public"}
 
 
 def include_name(name, type_, parent_names):
