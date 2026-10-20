@@ -7,7 +7,7 @@ this schema.
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Text, Enum, MetaData
+from sqlalchemy import Column, String, DateTime, Date, ForeignKey, Integer, Text, Enum, MetaData
 from sqlalchemy.orm import declarative_base, relationship
 
 
@@ -62,3 +62,16 @@ class BobobidouAuthState(BobobidouBase):
     provider = Column(Enum(BobobidouAuthProvider, name="authprovider", schema=BOBOBIDOU_SCHEMA), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+
+
+class BobobidouPhotoUsage(BobobidouBase):
+    """Photos analysed per day, by user (HMAC of the Google `sub`) and globally.
+
+    No foreign key to `users` on purpose: the counters must survive an account
+    deletion, otherwise deleting and recreating one's account resets the limit.
+    """
+    __tablename__ = "photo_usage"
+
+    subject = Column(String(64), primary_key=True)  # HMAC-SHA256 hex of the user id, or "global"
+    day = Column(Date, primary_key=True)  # UTC
+    count = Column(Integer, nullable=False, default=0, server_default="0")
