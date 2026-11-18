@@ -1,15 +1,28 @@
+import secrets
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from config import settings
 from dependencies.motivation.audio_mixer import mix_voice_with_music
 from dependencies.motivation.music_catalog import TRACKS, get_track
 from dependencies.motivation.phrase_generator import generate_phrases
 from dependencies.motivation.voice_service import synthesize
 
-motivation_router = APIRouter(prefix="/motivation", tags=["Motivation"])
+
+
+def _verify_motivation_key(x_motivation_key: str = Header(default="")):
+    # Refuse everything while no key is configured
+    expected = settings.motivation_api_key
+    if not expected or not secrets.compare_digest(x_motivation_key.encode(), expected.encode()):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+
+motivation_router = APIRouter(
+    prefix="/motivation", tags=["Motivation"], dependencies=[Depends(_verify_motivation_key)]
+)
 
 MAX_TEXT_LENGTH = 1000  # ElevenLabs bills per character
 
