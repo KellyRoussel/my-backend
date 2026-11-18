@@ -1,0 +1,15 @@
+# Exemples de phrases de motivation
+#
+# Ajoute tes exemples au fur et à mesure, il n'y a rien d'autre à toucher.
+# - Sépare les exemples par une ligne vide (un exemple peut tenir sur plusieurs lignes).
+# - Les lignes qui commencent par # sont ignorées (tu peux t'en servir pour des notes).
+# - Si la liste devient longue, un échantillon au hasard est envoyé à chaque génération
+#   (MOTIVATION_MAX_EXAMPLES, 20 par défaut) : ça varie le résultat et limite le coût.
+#
+# Les exemples ci-dessous sont temporaires : remplace-les par les tiens.
+
+Exemple 1 — à remplacer.
+
+Exemple 2 — à remplacer.
+
+Exemple 3 — à remplacer.

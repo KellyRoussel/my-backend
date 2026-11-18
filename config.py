@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     openai_motivation_key: str = ""
     motivation_model: str = "gpt-4.1-mini"
     motivation_temperature: float = 1.0
+    motivation_max_examples: int = 20  # Examples sent per generation, sampled from assets/motivation/exemples.txt
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""
     elevenlabs_model: str = "eleven_multilingual_v2"
