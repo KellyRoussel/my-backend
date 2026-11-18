@@ -20,6 +20,7 @@ from endpoints.account_deletion import account_deletion_router
 from endpoints.bobobidou import bobobidou_router
 from endpoints.insta_poster import insta_poster_router
 from endpoints.utils import utils_router
+from endpoints.motivation import motivation_router
 from endpoints.investment import investment_router
 from endpoints.portfolio import portfolio_router
 from endpoints.notifications import notifications_router, cron_router
@@ -58,6 +59,7 @@ app.include_router(authentication_router)
 app.include_router(account_deletion_router)
 app.include_router(insta_poster_router, dependencies=[Depends(auth_handler)])
 app.include_router(utils_router, dependencies=[Depends(auth_handler)])
+app.include_router(motivation_router, dependencies=[Depends(auth_handler)])
 app.include_router(investment_router, dependencies=[Depends(auth_handler)])
 app.include_router(portfolio_router)
 app.include_router(notifications_router, dependencies=[Depends(auth_handler)])

@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     langfuse_base_url: str = "https://cloud.langfuse.com"
     firebase_credentials_json: str = ""  # Service account JSON for FCM push notifications
     cron_secret: str = ""  # Shared secret to authenticate cron-triggered endpoints
+    openai_motivation_key: str = ""
+    motivation_model: str = "gpt-4.1-mini"
+    motivation_temperature: float = 1.0
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = ""
+    elevenlabs_model: str = "eleven_multilingual_v2"
+    elevenlabs_stability: float = 0.5
+    elevenlabs_similarity_boost: float = 0.75
+    elevenlabs_style: float = 0.0
 
 
 settings = Settings()

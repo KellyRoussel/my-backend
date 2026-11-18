@@ -23,3 +23,5 @@ langchain-mcp-adapters==0.2.2
 mcp>=1.9,<2
 langchain-google-genai>=2.0.0
 firebase-admin>=6.5.0
+# ffmpeg binary for the motivation clips (no system ffmpeg on Render)
+imageio-ffmpeg==0.8.1
