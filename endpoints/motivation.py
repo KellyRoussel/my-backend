@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from dependencies.motivation.audio_mixer import mix_voice_with_music
-from dependencies.motivation.music_catalog import TRACKS, get_track
+from dependencies.motivation import music_catalog
 from dependencies.motivation.phrase_generator import generate_phrases
 from dependencies.motivation.voice_service import synthesize
 
@@ -41,7 +41,7 @@ class ClipRequest(BaseModel):
 
 @motivation_router.get("/tracks")
 async def list_tracks():
-    return {"tracks": [{"id": t.id, "title": t.title} for t in TRACKS if t.path.is_file()]}
+    return {"tracks": [{"id": t.id, "title": t.title} for t in music_catalog.list_tracks()]}
 
 
 @motivation_router.post("/phrases")
@@ -56,8 +56,8 @@ async def create_phrases(body: PhrasesRequest):
 @motivation_router.post("/clip", response_class=Response)
 async def create_clip(body: ClipRequest):
     """Return the MP3 clip. The text read is in the `X-Motivation-Text` header (URL-encoded)."""
-    track = get_track(body.track_id)
-    if track is None or not track.path.is_file():
+    track = music_catalog.get_track(body.track_id)
+    if track is None:
         raise HTTPException(status_code=404, detail="Unknown track")
 
     text = (body.text or "").strip()

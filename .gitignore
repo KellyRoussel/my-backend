@@ -10,3 +10,6 @@ kelly_*
 tests_files/
 
 db_backups/
+# Background music for the motivation clips: personal files, never pushed
+assets/motivation/music/*
+!assets/motivation/music/.gitkeep
