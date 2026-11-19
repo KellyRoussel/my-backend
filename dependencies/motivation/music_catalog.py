@@ -18,8 +18,9 @@ class Track:
     title: str
     filename: str
     volume: float = 0.25  # Music level under the voice (1.0 = original level)
-    intro_seconds: float = 2.0  # Music alone before the voice starts
-    outro_seconds: float = 3.0  # Music alone after the voice ends
+    outro_volume: float = 1.0  # Level the music rises to once the voice is over
+    intro_seconds: float = 1.5  # Music alone before the voice starts
+    outro_seconds: float = 2.0  # Music alone, louder, after the voice ends, then the clip stops
 
     @property
     def path(self) -> Path:

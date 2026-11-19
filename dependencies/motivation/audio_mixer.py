@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 import shutil
 import tempfile
@@ -6,7 +7,9 @@ from pathlib import Path
 
 from dependencies.motivation.music_catalog import Track
 
-FADE_SECONDS = 1.5
+FADE_IN_SECONDS = 1.0  # Music fade in at the start of the clip
+RISE_SECONDS = 0.5  # Music rising to outro_volume when the voice is over
+END_FADE_SECONDS = 0.3  # Very short fade at the end, only to avoid a click
 
 
 def _ffmpeg_exe() -> str:
@@ -33,35 +36,47 @@ async def _duration(path: Path) -> float:
     _, stderr = await _run_ffmpeg("-i", str(path), "-f", "null", "-")
     times = re.findall(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)", stderr)
     if not times:
-        raise RuntimeError("Could not read the voice duration")
+        raise RuntimeError(f"Could not read the duration of {path.name}")
     h, m, s = times[-1]
     return int(h) * 3600 + int(m) * 60 + float(s)
 
 
 async def mix_voice_with_music(voice_mp3: bytes, track: Track) -> bytes:
-    """Put the voice over the track and return the clip as MP3 bytes.
+    """Put the voice over a random excerpt of the track and return the clip as MP3 bytes.
 
-    The music plays alone for `intro_seconds`, goes on under the voice and stops
-    `outro_seconds` after it, with a fade in and out. It loops if it is too short.
+    The music fades in, plays alone for `intro_seconds`, goes on quietly under the voice,
+    then rises to `outro_volume` when the voice is over, plays `outro_seconds` and stops.
+    The excerpt starts at a random point of the track (from the start, looped, if the
+    track is shorter than the clip).
     """
     with tempfile.TemporaryDirectory() as tmp:
         voice_path = Path(tmp) / "voice.mp3"
         output_path = Path(tmp) / "clip.mp3"
         voice_path.write_bytes(voice_mp3)
 
-        total = track.intro_seconds + await _duration(voice_path) + track.outro_seconds
-        delay_ms = int(track.intro_seconds * 1000)
-        fade_out_start = max(total - FADE_SECONDS, 0)
+        voice_end = track.intro_seconds + await _duration(voice_path)
+        total = voice_end + track.outro_seconds
+        track_duration = await _duration(track.path)
+        if track_duration > total:
+            music_input = ["-ss", f"{random.uniform(0, track_duration - total):.3f}", "-i", str(track.path)]
+        else:
+            music_input = ["-stream_loop", "-1", "-i", str(track.path)]
 
+        low, high = track.volume, track.outro_volume
+        level = (
+            f"if(lt(t,{voice_end:.3f}),{low},"
+            f"{low}+({high}-{low})*min((t-{voice_end:.3f})/{RISE_SECONDS},1))"
+        )
         filters = (
-            f"[0:a]atrim=0:{total:.3f},volume={track.volume},"
-            f"afade=t=in:d={FADE_SECONDS},afade=t=out:st={fade_out_start:.3f}:d={FADE_SECONDS}[music];"
-            f"[1:a]adelay={delay_ms}:all=1[voice];"
+            f"[0:a]atrim=0:{total:.3f},asetpts=PTS-STARTPTS,volume='{level}':eval=frame,"
+            f"afade=t=in:d={FADE_IN_SECONDS},"
+            f"afade=t=out:st={total - END_FADE_SECONDS:.3f}:d={END_FADE_SECONDS}[music];"
+            f"[1:a]adelay={int(track.intro_seconds * 1000)}:all=1[voice];"
             "[music][voice]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
         )
         code, stderr = await _run_ffmpeg(
             "-y",
-            "-stream_loop", "-1", "-i", str(track.path),
+            *music_input,
             "-i", str(voice_path),
             "-filter_complex", filters,
             "-map", "[out]",
